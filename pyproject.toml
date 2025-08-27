@@ -72,10 +72,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/checklist_plus"
+Homepage = "https://github.com/cowana-ai/checklist_plus"
 Documentation = "https://checklist-plus.readthedocs.io/"
-Repository = "https://github.com/yourusername/checklist_plus.git"
-"Bug Tracker" = "https://github.com/yourusername/checklist_plus/issues"
+Repository = "https://github.com/cowana-ai/checklist_plus.git"
+"Bug Tracker" = "https://github.com/cowana-ai/checklist_plus/issues"
 "Original CheckList" = "https://github.com/marcotcr/checklist"
 
 [project.scripts]
