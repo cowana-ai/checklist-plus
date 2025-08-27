@@ -1,11 +1,13 @@
-import ipywidgets as widgets
-from traitlets import Unicode, List, Dict
 import os
 import typing
-from spacy.lang.en import English
 from copy import deepcopy
+
+import ipywidgets as widgets
+from spacy.lang.en import English
+from traitlets import Dict, List, Unicode
+
 try:
-    from IPython.core.display import display, Javascript
+    from IPython.core.display import Javascript, display
 except:
     raise Exception("This module must be run in IPython.")
 DIRECTORY = os.path.abspath(os.path.dirname(__file__))
@@ -24,9 +26,9 @@ class TestSummarizer(widgets.DOMWidget):
     testcases = List([]).tag(sync=True)
     summarizer = Dict({}).tag(sync=True)
 
-    def __init__(self, 
-        test_summary: typing.Dict, 
-        testcases: typing.List,
+    def __init__(self,
+        test_summary: dict,
+        testcases: list,
         **kwargs):
         widgets.DOMWidget.__init__(self, **kwargs)
 
@@ -38,15 +40,15 @@ class TestSummarizer(widgets.DOMWidget):
         self.reset_summary(test_summary)
         self.reset_testcases(testcases)
         self.on_msg(self.handle_events)
-    
+
     def reset_summary(self, test_summary=None):
         self.summarizer = test_summary if test_summary else {}
-    
+
     def reset_testcases(self, testcases=None):
         self.filtered_testcases = testcases if testcases else []
         self.tokenize_testcases()
         self.search(filter_tags=[], is_fail_case=True)
-        
+
     def handle_events(self, _, content, buffers):
         """
         Event handler. Users trigger python functions through the frontend interaction.
@@ -87,8 +89,8 @@ class TestSummarizer(widgets.DOMWidget):
             "nfiltered": 0
         }
 
-    def is_satisfy_filter(self, testcase, 
-        filter_tags: typing.List[str], 
+    def is_satisfy_filter(self, testcase,
+        filter_tags: list[str],
         is_fail_case: bool) -> bool:
         testcase_tags = testcase["tags"]
         texts = []
@@ -105,15 +107,15 @@ class TestSummarizer(widgets.DOMWidget):
         is_failured_filtered = not (is_fail_case and testcase["succeed"] == 1)
         return is_tag_filtered and is_failured_filtered
 
-    def search(self, filter_tags: typing.List[str], is_fail_case: bool):
+    def search(self, filter_tags: list[str], is_fail_case: bool):
         self.testcases = []
         candidate_testcases_not_fail = [
             e for e in self.filtered_testcases if \
-            self.is_satisfy_filter(e, filter_tags, False) 
+            self.is_satisfy_filter(e, filter_tags, False)
         ]
         self.candidate_testcases = [
             e for e in candidate_testcases_not_fail if \
-                not (is_fail_case and e["succeed"] == 1) 
+                not (is_fail_case and e["succeed"] == 1)
         ]
         self.compute_stats_result(candidate_testcases_not_fail)
         self.to_slice_idx = 0

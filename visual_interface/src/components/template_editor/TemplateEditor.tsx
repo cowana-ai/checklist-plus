@@ -53,14 +53,14 @@ export class TemplateEditor extends React.Component<TemplateEditorProps, {}> {
           onOk={() => {this.modalVisible = false;}}
           onCancel={null}
           cancelButtonProps={{style: {display: "none"}}}>
-          <p>Success! See your <code>suite.raw_examples</code> and <code>suite.raw_tags</code> for 
+          <p>Success! See your <code>suite.raw_examples</code> and <code>suite.raw_tags</code> for
           the generated ones.</p>
         </Modal>
     }
 
 
     public render(): JSX.Element {
-        return <Row 
+        return <Row
             style={{marginTop: 15}}
             key={templateStore.templates.map(t => t.key()).join("-")} gutter={30}>
             <Col span={17}>
@@ -82,7 +82,7 @@ export class TemplateEditor extends React.Component<TemplateEditorProps, {}> {
             </Col>
             <Col span={7}>
                 <h4 className="header">Preview</h4>
-                <div 
+                <div
                 key={templateStore.templates.map(t => t.key()).join("-")}
                 style={{maxHeight: templateStore.templates.length * 200, overflow: "auto"}}>
                 <List
@@ -97,6 +97,6 @@ export class TemplateEditor extends React.Component<TemplateEditorProps, {}> {
             </Col>
             {/*this.confirmModal()*/}
         </Row>
-        
+
     }
 }

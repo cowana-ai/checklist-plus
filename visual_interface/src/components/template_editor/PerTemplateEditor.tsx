@@ -28,17 +28,17 @@ export class PerTemplateEditor extends React.Component<PerTemplateEditorProps, {
         let bertIdx: number = 0;
         return <Row style={{display: "flex", flexWrap: "wrap"}}>
             {this.template.tokens.map((t: TemplateToken, idx: number) => {
-                const options = t.isGeneralMask() ? 
-                    templateStore.bertSuggests.map(b => b[bertIdx]) : 
+                const options = t.isGeneralMask() ?
+                    templateStore.bertSuggests.map(b => b[bertIdx]) :
                     t.candidates.filter(utils.uniques).filter(w => w !== t.default);
                 bertIdx += t.isGeneralMask() ? 1 : 0;
-                return <TokenSpan 
+                return <TokenSpan
                     key={`${t.key()}-${idx}-${t.displayTag()}`}
                     options={options}
                     token={t}
                     onChangeSelected={this.props.onChangeSelected} />
             } )}
         </Row>
-        
+
     }
 }

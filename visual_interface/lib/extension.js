@@ -33,6 +33,6 @@ const load_ipython_extension = function() {
             console.log(event)
             return false;
         }}
-    );    
+    );
 }
 export default load_ipython_extension;

@@ -7,7 +7,7 @@ import { utils } from '../../stores/Utils';
 import { TestResult } from '../../stores/tests/TestResult';
 import { TestStatsViz } from '../test_summarizer/TestResultBar';
 import { testStore } from '../../stores/tests/TestStore';
-import { TestSummarizer } from "../test_summarizer/TestSummarizer"; 
+import { TestSummarizer } from "../test_summarizer/TestSummarizer";
 import { TestStats } from '../../stores/tests/TestStats';
 
 import * as d3Scale from 'd3-scale';
@@ -74,20 +74,20 @@ export class SuiteSummarizer extends React.Component<SuiteSummarizerProps, {}> {
 		// first, get the types
 		const sources = tests.map(t => {
 			return {
-				name: t.name, 
-				key: t.key(), 
+				name: t.name,
+				key: t.key(),
 				test: t,
 				fail_rate: t.testStats}
 		});
 
 		const columns: any[] = [
-			{ 
+			{
 				title: 'test name', dataIndex: 'name', key: 'name',
 				className: "test-name-col",
-				render: (name: string, __, _) => <pre 
+				render: (name: string, __, _) => <pre
 					style={{ marginTop: 0, marginBottom: -1}}>{name.padEnd(maxNameLength)}</pre>
-			}, { 
-				title: 'failure rate', dataIndex: 'fail_rate', key: 'fail_rate', 
+			}, {
+				title: 'failure rate', dataIndex: 'fail_rate', key: 'fail_rate',
 				className: "test-stat-col",
 				render: (stats: TestStats, __, _) => <div style={{ marginTop: 0, marginBottom: -5}}>
 					<pre>
@@ -118,7 +118,7 @@ export class SuiteSummarizer extends React.Component<SuiteSummarizerProps, {}> {
 				return selectedKey === record.key ? <div
 					className="full-width"
 					style={{backgroundColor: "white"}}
-					><TestSummarizer 
+					><TestSummarizer
 					forceSkip={selectedKey !== record.key}
 					key={`${record.key} ${selectedKey}`}
 					onFetch={() => {this.props.onFetch()}}
@@ -130,15 +130,15 @@ export class SuiteSummarizer extends React.Component<SuiteSummarizerProps, {}> {
 
 	public renderPerCapability(row: CellType): JSX.Element {
 		const types: TestType[] = ["mft", "inv", "dir"];
-		const maxNameLength = Math.max(...types.map(ttype => 
+		const maxNameLength = Math.max(...types.map(ttype =>
 				Math.max(...row[ttype].tests.map(t => t.name.length))))
 		return <div key={row.capability}>
 		{types.map(ttype => {
 			const tests = row[ttype].tests//.sort((a, b) => b.testStats.rate("fail") - a.testStats.rate("fail"));
-			
+
 			return tests.length > 0 ? <div key={ttype} className="full-width">
 				<Divider ><span className="info-header">{headerMapper[ttype]}</span></Divider>
-				{this.renderPerType(tests, maxNameLength)} 
+				{this.renderPerType(tests, maxNameLength)}
 			</div> : null
 		})}
 		</div>
@@ -168,7 +168,7 @@ export class SuiteSummarizer extends React.Component<SuiteSummarizerProps, {}> {
 			sources.push(curSource as CellType);
 		})
 
-		const columns: any[] = [{ 
+		const columns: any[] = [{
 			title: 'Capabilities', dataIndex: 'capability', key: 'capability',
 		}]
 		types.forEach(ttype => {
@@ -176,7 +176,7 @@ export class SuiteSummarizer extends React.Component<SuiteSummarizerProps, {}> {
 			title: <div>
 				<div>{headerMapper[ttype]}</div>
 				<small><i>failure rate % (over N tests)</i></small>
-			</div>, 
+			</div>,
 			dataIndex: ttype, key: ttype,
 			render: (cell, row, _) => {
 				const tests = cell.tests;
@@ -185,7 +185,7 @@ export class SuiteSummarizer extends React.Component<SuiteSummarizerProps, {}> {
 				const rateStr = (avgRate * 100).toFixed(1) + "%";
 				return {
 						props: {
-						  style: { 
+						  style: {
 							  background: nTests === 0 ? "white" : this.colorScale(Math.cbrt(avgRate)),
 							  //boxShadow: "inset 0px 0px 0px 5px white" ,
 							  //boxSizing: "border-box",
@@ -197,7 +197,7 @@ export class SuiteSummarizer extends React.Component<SuiteSummarizerProps, {}> {
 				}
 			})
 		})
-		return <Table 
+		return <Table
 			className="full-width"
 			key={tests.map(t => t.key()).join("-")}
 			pagination={false}

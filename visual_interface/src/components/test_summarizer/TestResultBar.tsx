@@ -12,7 +12,7 @@ interface TestResultBarProps {
 export class TestStatsViz extends React.Component<TestResultBarProps, {}> {
     public specs: {[key: string]: any};
     public data: {
-        count: number, 
+        count: number,
         result: string;
         order: number;
         output: "success"|"fail"|"kept"|"filter"
@@ -30,9 +30,9 @@ export class TestStatsViz extends React.Component<TestResultBarProps, {}> {
                 "y": {field: "result", type: "nominal", axis: null},
                 "order": {field: "order", "type": "quantitative"},
                 "color": {field: "output", type: "nominal", legend: null, scale: {
-                    domain: ["success", "fail", "kept", "filter"], 
+                    domain: ["success", "fail", "kept", "filter"],
                     range: [ utils.color.success, utils.color.fail, utils.color.kept, utils.color.filter ]
-                }}            
+                }}
             },
             background: null,
             "config": {
@@ -53,11 +53,11 @@ export class TestStatsViz extends React.Component<TestResultBarProps, {}> {
                 this.data.push({count: t.nfailed + t.npassed, output: "kept", order: 1, result: t.strRate("filter")});
                 this.data.push({count: t.nfiltered, output: "filter",order: 2,result: t.strRate("filter")});
             }
-            
+
         });
     }
 
-    public render(): JSX.Element {        
+    public render(): JSX.Element {
         return <VegaLite spec={this.specs} data={{myData: this.data}} />
     }
 }

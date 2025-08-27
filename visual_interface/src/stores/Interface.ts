@@ -6,25 +6,25 @@ export type TestSentence = {
     conf: number;
 }
 
-export type TestExample = { 
+export type TestExample = {
     old: TestSentence;
     new: TestSentence;
-    label: string; 
+    label: string;
     succeed: boolean;
 };
 
 
-export type RawTestCase = { 
+export type RawTestCase = {
     examples: TestExample[];
     tags: string[];
     succeed: boolean;
 };
-export type RawTestStats = { 
-    npassed: number; 
+export type RawTestStats = {
+    npassed: number;
     nfailed: number;
     nfiltered: number;
 }
-export type RawTestResult = { 
+export type RawTestResult = {
     name: string;
     description: string;
     capability: string;
@@ -57,6 +57,3 @@ export type TemplateExampleToken =  {
 };
 export type TemplateExampleSentence = TemplateExampleToken[];
 export type TemplateExample = TemplateExampleSentence[];
-
-
-

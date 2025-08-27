@@ -1,11 +1,14 @@
-import numpy as np
 import collections
-import re
-import os
 import json
+import os
+import re
+
+import numpy as np
 import pattern
 from pattern.en import tenses
-from .editor import recursive_apply, MunchWithAdd
+
+from .editor import MunchWithAdd, recursive_apply
+
 
 def load_data():
     cur_folder = os.path.dirname(__file__)
@@ -312,7 +315,7 @@ class Perturb:
                     else:
                         do = 'not'
                         new_root = root.text
-                    return '%s %s %s %s' % (doc[:root_id].text, do, new_root,  doc[root_id + 1:].text)
+                    return f'{doc[:root_id].text} {do} {new_root} {doc[root_id + 1:].text}'
 
     @staticmethod
     def contractions(sentence, **kwargs):
@@ -490,7 +493,7 @@ class Perturb:
                 if len(x.split()) > 1:
                     last = Perturb.data['name']['last'][:90+n]
                     last = np.random.choice(last, n)
-                    to_use = ['%s %s' % (x, y) for x, y in zip(names, last)]
+                    to_use = [f'{x} {y}' for x, y in zip(names, last)]
                     if last_only:
                         to_use = last
                         f = x.split()[1]

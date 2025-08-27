@@ -1,5 +1,7 @@
-import numpy as np
 import itertools
+
+import numpy as np
+
 
 def iter_with_optional(data, preds, confs, labels, meta, idxs=None):
     # If this is a single example

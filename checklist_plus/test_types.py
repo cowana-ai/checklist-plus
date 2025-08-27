@@ -1,6 +1,7 @@
 from .abstract_test import AbstractTest
 from .expect import Expect
 
+
 class MFT(AbstractTest):
     def __init__(self, data, expect=None, labels=None, meta=None, agg_fn='all',
                  templates=None, name=None, capability=None, description=None):

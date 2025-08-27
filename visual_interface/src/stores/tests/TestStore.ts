@@ -51,15 +51,15 @@ export class TestStore {
     }
 
     public setTestcases(testcases: RawTestCase[]): void {
-        this.candidateTestcases = testcases.map(e => 
+        this.candidateTestcases = testcases.map(e =>
             new TestCase(e.examples, e.succeed, e.tags));
-        this.allTestcases = testcases.map(e => 
+        this.allTestcases = testcases.map(e =>
             new TestCase(e.examples, e.succeed, e.tags));
         this.testcases = [];
     }
 
     public addMoreTestcases(testcases: RawTestCase[]): void {
-        this.testcases = this.testcases.concat(testcases.map(e => 
+        this.testcases = this.testcases.concat(testcases.map(e =>
             new TestCase(e.examples, e.succeed, e.tags)));
     }
 
@@ -88,7 +88,7 @@ export class TestStore {
         // get some random stats
         this.randomTestStats();
     }
- 
+
     public fetchMoreExample(): void {
         this.testcases = this.testcases.concat(this.candidateTestcases);
     }

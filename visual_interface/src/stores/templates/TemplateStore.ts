@@ -1,6 +1,6 @@
 import { observable } from "mobx";
 import { Template } from "./Template";
-import { TagDict, RawTemplate, BertSuggest, 
+import { TagDict, RawTemplate, BertSuggest,
     TemplateExampleSentence, TemplateExample } from "../Interface";
 import { utils } from "../Utils";
 
@@ -90,17 +90,17 @@ export class TemplateStoreClass {
                     const exampleSentence: TemplateExampleSentence = [];
                     template.tokens.map(t => {
                         bertIdx += t.isGeneralMask() ? 1 : 0;
-                        const text = t.isGeneralMask() ? 
-                            suggetTuple[bertIdx] : t.isAbstract() ? 
+                        const text = t.isGeneralMask() ?
+                            suggetTuple[bertIdx] : t.isAbstract() ?
                                 t.candidates[combinedDict[t.identifier]] : t.default;
                         if (t.needArticle) {
                             exampleSentence.push({
-                                text: utils.genArticle(text), hasTag: t.isAbstract(), 
+                                text: utils.genArticle(text), hasTag: t.isAbstract(),
                                 isArticle: true, isMask: t.isGeneralMask()
                             })
                         }
                         exampleSentence.push({
-                            text: text, isArticle: false, hasTag: 
+                            text: text, isArticle: false, hasTag:
                             t.isAbstract(), isMask: t.isGeneralMask()
                         })
                     })

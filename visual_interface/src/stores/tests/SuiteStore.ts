@@ -6,7 +6,7 @@ import { rawTestResult, rawTestcases } from "../FakeData";
 
 export class SuiteStore {
     @observable public overviewTests: TestResult[];
-    
+
     constructor() {
         this.overviewTests = [];
         this.onSelectTest = this.onSelectTest.bind(this);
