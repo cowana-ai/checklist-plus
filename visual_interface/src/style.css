@@ -46,15 +46,15 @@ tr.ant-table-expanded-row, tr.ant-table-expanded-row:hover {
     background: #f6f6f6;
 }
 
-.test-name-col { 
-    max-width: 350px; 
+.test-name-col {
+    max-width: 350px;
 }
 
 .test-name-col pre {
     word-break: keep-all;
     white-space: pre-wrap!important;
 }
-.test-stat-col { 
+.test-stat-col {
     min-width: 240px!important;
     max-width: 50%;
 }
@@ -96,7 +96,7 @@ tr.ant-table-expanded-row, tr.ant-table-expanded-row:hover {
     background: #e5faf5!important;
     color: #007857!important;
 }
-  
+
 .example-token.rewrite-remove {
     background: #ffefea!important;
     color: #d35229!important;
@@ -114,7 +114,7 @@ tr.ant-table-expanded-row, tr.ant-table-expanded-row:hover {
 
 /* FOR TEMPLATES */
 
-.template-token-box {    
+.template-token-box {
     display: inline-block;
     margin-bottom: 10px;
     padding: 7px;

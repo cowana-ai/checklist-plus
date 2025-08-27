@@ -21,7 +21,7 @@ class UtilsClass {
 
     constructor() {
         this.color = {
-            success: "#1f77b4", fail: "#ff7f0e", 
+            success: "#1f77b4", fail: "#ff7f0e",
             //success: "#9ecae1", fail: "#fdae6b",
             kept: "#969696", filter: "#d9d9d9"
         };
@@ -37,7 +37,7 @@ class UtilsClass {
     }
 
     public getRandomArbitrary(min: number, max: number): number {
-        return Math.floor(Math.random() * (max - min) + min); 
+        return Math.floor(Math.random() * (max - min) + min);
     }
 
     public getRandomSubarray<T>(arr: T[], size: number): T[] {
@@ -233,7 +233,7 @@ class UtilsClass {
     public intersection(multi_array: any[][]): any[] {
         var result = [];
       var lists = multi_array;
-      
+
       for(var i = 0; i < lists.length; i++) {
           var currentList = lists[i];
           for(var y = 0; y < currentList.length; y++) {

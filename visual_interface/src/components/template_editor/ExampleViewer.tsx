@@ -50,15 +50,15 @@ export class ExampleView extends React.Component<ExampleViewProps, {}> {
             <List.Item.Meta
                 description={
                 <div>{this.props.example.map(
-                    (sentence: TemplateExampleSentence, idx: number) => 
+                    (sentence: TemplateExampleSentence, idx: number) =>
                         <div key={idx}>
                             {this.renderTemplate(sentence)}
                         </div>
                     )}
                 </div>}/>
         </List.Item>
-        
-        
-        
+
+
+
     }
 }

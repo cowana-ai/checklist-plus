@@ -37,7 +37,7 @@ export class TestcaseView extends React.Component<TestcaseViewProps, {}> {
                 </div>
                 </div>
             ))}
-            
+
         </div>
     }
 
@@ -51,14 +51,14 @@ export class TestcaseView extends React.Component<TestcaseViewProps, {}> {
             // get the current span
             const curSpan: JSX.Element = <span key={ curClass }>
                 <span className={`example-token ${editClass}`}>{t.text}</span>
-                <span>{this.replaceArrow(t.isReplace)} </span>                
+                <span>{this.replaceArrow(t.isReplace)} </span>
             </span>;
             return curSpan;
         })}</div>
     }
 
     public renderTags(): JSX.Element {
-        const tagWrapper = (text: string) => <span 
+        const tagWrapper = (text: string) => <span
             style={{
                 margin: "2px 4px",
                 padding: "2px 4px",
@@ -69,14 +69,14 @@ export class TestcaseView extends React.Component<TestcaseViewProps, {}> {
         const newobj = this.props.example.new;
         const oldobj = this.props.example.old;
         const isSuccess = this.props.example.succeed;
-        const expectIcon = this.props.example.label === "" || this.props.example.label === null || this.props.example.label === undefined ? 
+        const expectIcon = this.props.example.label === "" || this.props.example.label === null || this.props.example.label === undefined ?
             null: <span>
                 {tagWrapper("Expect")}
                 {wrapper(this.props.example.label)}
                 <span style={{color: "lightgray", fontWeight: "bold"}}>{` | `}</span>
                 </span>;
         const confStr = newobj.conf ? ` (${newobj.conf.toFixed(2)})` : "";
-    
+
         let predTag = <div className="pred-tag">
             {expectIcon}
             {tagWrapper("Pred")}
@@ -97,7 +97,7 @@ export class TestcaseView extends React.Component<TestcaseViewProps, {}> {
             {predTag}
             <Icon style={{ fontSize: 16, verticalAlign: "middle"}}
                 type={isSuccess ? "check-circle" : "close-circle"}
-                theme="twoTone" 
+                theme="twoTone"
                 twoToneColor={isSuccess ? utils.color.success : utils.color.fail} />
         </span>;
     }

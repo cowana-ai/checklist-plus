@@ -14,22 +14,22 @@ export class TestStats {
     }
 
     public rate(type: "fail"|"filter"="fail"): number {
-        const subset = type === "fail" ? 
+        const subset = type === "fail" ?
             this.nfailed : this.npassed + this.nfailed;
-        const total = type === "fail" ? 
+        const total = type === "fail" ?
         this.nfailed + this.npassed : this.npassed + this.nfailed + this.nfiltered;
         const rate = total ? subset / total : 0;
         return rate;
     }
 
     public strRate(type: "fail"|"filter", isPad: boolean=false): string {
-        const subset = type === "fail" ? 
+        const subset = type === "fail" ?
             this.nfailed : this.npassed + this.nfailed;
-        const total = type === "fail" ? 
+        const total = type === "fail" ?
         this.nfailed + this.npassed : this.npassed + this.nfailed + this.nfiltered;
         const rate = total ? subset / total : 0;
         const rateStr = (rate * 100).toFixed(1) + "%";
-        
+
         return isPad ?
             `${String(subset).padStart(4)} / ${String(total).padStart(4)} = ${rateStr.padStart(6)}` :
             `${subset}/${total}=${rateStr}`;

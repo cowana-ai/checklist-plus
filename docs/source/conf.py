@@ -134,4 +134,4 @@ def linkcode_resolve(domain, info):
         linespec = ""
 
     filename = info['module'].replace('.', '/')
-    return "https://github.com/marcotcr/checklist/blob/master/%s.py%s" % (filename, linespec)
+    return f"https://github.com/marcotcr/checklist/blob/master/{filename}.py{linespec}"

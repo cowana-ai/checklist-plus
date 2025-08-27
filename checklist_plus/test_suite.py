@@ -1,16 +1,18 @@
 import collections
-from collections import defaultdict, OrderedDict
-import dill
 import json
-from .abstract_test import load_test, read_pred_file
-from .test_types import MFT, INV, DIR
+from collections import OrderedDict, defaultdict
 
+import dill
+
+from .abstract_test import load_test, read_pred_file
+from .test_types import DIR, INV, MFT
 from .viewer.suite_summarizer import SuiteSummarizer
+
 
 class TestSuite:
     def __init__(self, format_example_fn=None, print_fn=None):
         self.tests = OrderedDict()
-        self.info = defaultdict(lambda: defaultdict(lambda: ''))
+        self.info = defaultdict(lambda: defaultdict(str))
         self.format_example_fn = format_example_fn
         self.print_fn = print_fn
         self.test_ranges = {}
@@ -118,7 +120,7 @@ class TestSuite:
             size = r[1] - r[0]
             hf_dict['test_name'].extend([test_name for _ in range(size)])
             hf_dict['test_case'].extend(test.result_indexes)
-            cnt = collections.defaultdict(lambda: 0)
+            cnt = collections.defaultdict(int)
             example_idx = []
             for i in test.result_indexes:
                 example_idx.append(cnt[i])
@@ -292,7 +294,7 @@ class TestSuite:
         tests = self.tests.keys()
         capability_order = ['Vocabulary', 'Taxonomy', 'Robustness', 'NER',  'Fairness', 'Temporal', 'Negation', 'Coref', 'SRL', 'Logic']
         cap_order = lambda x:capability_order.index(x) if x in capability_order else 100
-        caps = sorted(set([x['capability'] for x in self.info.values()]), key=cap_order)
+        caps = sorted({x['capability'] for x in self.info.values()}, key=cap_order)
         for capability in caps:
             if capabilities is not None and capability not in capabilities:
                 continue

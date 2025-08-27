@@ -11,7 +11,7 @@ export const rawTemplates: RawTemplate[] = [
                 'Christopher','Christopher','Christopher','Christopher','Christopher',
                 'Jessica','Jessica','Jessica','Jessica','Jessica',
                 'Matthew','Matthew','Matthew','Matthew','Matthew'
-            ], 
+            ],
             'first_name', 'first_name'
         ],
         'is',

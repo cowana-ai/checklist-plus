@@ -12,7 +12,7 @@ import { testStore } from '../../stores/tests/TestStore';
 import { SuiteSummarizer } from './SuiteSummarizer';
 import { suiteStore } from '../../stores/tests/SuiteStore';
 import { TestResult } from '../../stores/tests/TestResult';
- 
+
 
 // Custom Model. Custom widgets models must at least provide default values
 // for model attributes, including
@@ -57,13 +57,13 @@ export const View = widgets.DOMWidgetView.extend({
         suiteStore.setTestOverview(this.model.get("test_infos"));
         //if (redraw) { this.renderApp(); }
     },
-    
+
     // to get data from the backend
     onSummarizerChanged: function(redraw: boolean=false): void {
         testStore.setTest(this.model.get("summarizer") as RawTestResult);
         //if (redraw) { this.renderApp(); }
     },
-    onExampleChanged: function(redraw: boolean=false): void {     
+    onExampleChanged: function(redraw: boolean=false): void {
         testStore.addMoreTestcases(this.model.get("testcases") as RawTestCase[]);
         //if (redraw) { this.renderApp(); }
     },
@@ -74,8 +74,8 @@ export const View = widgets.DOMWidgetView.extend({
     onApplyFilter: function(): void {
         testStore.testcases = [];
         this.send({
-            event: 'apply_filter', 
-            filter_tags: testStore.searchTags, 
+            event: 'apply_filter',
+            filter_tags: testStore.searchTags,
             filter_fail_case: testStore.failCaseOnly
         });
     },
@@ -111,8 +111,8 @@ export const View = widgets.DOMWidgetView.extend({
             testStore.setTest(null);
             this.send({ event: 'switch_test', testname: "" });
         }
-        
-        
+
+
         //this.renderApp();
     },
 
@@ -123,12 +123,12 @@ export const View = widgets.DOMWidgetView.extend({
         }
         const $app = document.createElement("div");
         $app.setAttribute("id", "app-wrapper");
-        
+
         const wrapper = <SuiteSummarizer
             onFetch={this.onFetchMoreExample}
             onSearch={this.onApplyFilter}
             onSelect={this.onSelectTest} />
-            
+
         ReactDOM.render(wrapper, $app);
         this.el.appendChild($app);
     },

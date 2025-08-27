@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class PredictorWrapper:
     @staticmethod
     def wrap_softmax(softmax_fn):

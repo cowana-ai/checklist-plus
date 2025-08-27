@@ -1,11 +1,12 @@
-import ipywidgets as widgets
-from traitlets import Unicode, List, Dict
+import itertools
 import os
 import typing
-import itertools
+
+import ipywidgets as widgets
+from traitlets import Dict, List, Unicode
 
 try:
-    from IPython.core.display import display, Javascript
+    from IPython.core.display import Javascript, display
 except:
     raise Exception("This module must be run in IPython.")
 DIRECTORY = os.path.abspath(os.path.dirname(__file__))
@@ -29,10 +30,10 @@ class TemplateEditor(widgets.DOMWidget):
     bert_suggests = List([], help="The BERT suggestion list").tag(sync=True)
 
     def __init__(self, \
-        template_strs: typing.List[str], \
-        tagged_keys: typing.List[str], \
-        tag_dict: typing.Dict[str, str], \
-        mask_suggests: typing.List[typing.Union[str, tuple]], \
+        template_strs: list[str], \
+        tagged_keys: list[str], \
+        tag_dict: dict[str, str], \
+        mask_suggests: list[str | tuple], \
         format_fn: typing.Callable, \
         select_suggests_fn: typing.Callable, \
         tokenizer, \
@@ -58,11 +59,11 @@ class TemplateEditor(widgets.DOMWidget):
         for idx, key in enumerate(tagged_keys):
             self.tokenizer.add_tokens(trans_keys[idx])
         for item_val in itertools.product(*item_vals):
-            if len(item_val) != len(set([str(x) for x in item_val])):
+            if len(item_val) != len({str(x) for x in item_val}):
                 continue
             local_item = {item_keys[i]: item_val[i] for i, _ in enumerate(item_val)}
             local_items.append(local_item)
-            
+
         def _tokenize(text):
             tokens = [self.tokenizer.decode(x) for x in self.tokenizer.encode(text, add_special_tokens=False)]
             return [t for t in tokens if t]
@@ -81,7 +82,7 @@ class TemplateEditor(widgets.DOMWidget):
                 return (texts, norm, normalized_key)
             else:
                 return text
-        
+
         template_tokens = [get_meta(t) for t in _tokenize(template_str)]
         return template_tokens
 

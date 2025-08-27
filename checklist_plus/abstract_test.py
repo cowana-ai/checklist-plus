@@ -1,11 +1,13 @@
-from abc import ABC, abstractmethod
-import dill
-from munch import Munch
-import numpy as np
 import inspect
-from .expect import iter_with_optional, Expect
+from abc import ABC, abstractmethod
 
+import dill
+import numpy as np
+from munch import Munch
+
+from .expect import Expect, iter_with_optional
 from .viewer.test_summarizer import TestSummarizer
+
 
 def load_test(file):
     dill._dill._reverse_typemap['ClassType'] = type
@@ -13,7 +15,7 @@ def load_test(file):
         return dill.load(infile)
 
 def read_pred_file(path, file_format=None, format_fn=None, ignore_header=False):
-    f = open(path, 'r', encoding='utf-8')
+    f = open(path, encoding='utf-8')
     if ignore_header:
         f.readline()
     preds = []
@@ -448,15 +450,15 @@ class AbstractTest(ABC):
             if softmax:
                 if conf.shape[0] == 2:
                     conf = conf[1]
-                    return '%.1f %s' % (conf, str(x))
+                    return f'{conf:.1f} {str(x)}'
                 elif conf.shape[0] <= 4:
                     confs = ' '.join(['%.1f' % c for c in conf])
-                    return '%s %s' % (confs, str(x))
+                    return f'{confs} {str(x)}'
                 else:
                     conf = conf[pred]
-                    return '%s (%.1f) %s' % (pred, conf, str(x))
+                    return f'{pred} ({conf:.1f}) {str(x)}'
             else:
-                return '%s %s' % (pred, str(x))
+                return f'{pred} {str(x)}'
 
         if format_example_fn is None:
             format_example_fn = default_format_example

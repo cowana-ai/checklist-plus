@@ -9,7 +9,7 @@ import * as ReactDOM from 'react-dom';
 import '../../style.css';
 import { RawTestCase, RawTestResult, RawTestStats } from '../../stores/Interface';
 import { testStore } from '../../stores/tests/TestStore';
-import { TestSummarizer } from "./TestSummarizer"; 
+import { TestSummarizer } from "./TestSummarizer";
 
 // Custom Model. Custom widgets models must at least provide default values
 // for model attributes, including
@@ -64,8 +64,8 @@ export const View = widgets.DOMWidgetView.extend({
     onApplyFilter: function(): void {
         testStore.testcases = [];
         this.send({
-            event: 'apply_filter', 
-            filter_tags: testStore.searchTags, 
+            event: 'apply_filter',
+            filter_tags: testStore.searchTags,
             filter_fail_case: testStore.failCaseOnly
         });
     },
@@ -82,12 +82,12 @@ export const View = widgets.DOMWidgetView.extend({
         const $app = document.createElement("div");
         $app.setAttribute("id", "app-wrapper");
 
-        const wrapper = <TestSummarizer 
+        const wrapper = <TestSummarizer
             onFetch={this.onFetchMoreExample}
             onSearch={this.onApplyFilter} />
-        
+
         ReactDOM.render(wrapper, $app);
-        this.el.appendChild($app); 
+        this.el.appendChild($app);
     },
 
     render: function() {

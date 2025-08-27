@@ -22,24 +22,24 @@ export class App extends React.Component<{}, {}> {
         suiteStore.onSelectTest(suiteStore.overviewTests[0])
 
     }
-    
+
     public render(): JSX.Element {
         return (
             <Layout>
                 <Layout.Content style={{ padding: '50px 50px' }}>
                 <Card>
-                <TestSummarizer 
+                <TestSummarizer
 					onFetch={ () => {testStore.fetchMoreExample ()}}
                     onSearch={() => { testStore.search() }} />
                 </Card>
-                
+
                 <Card>
                 <TemplateEditor onChangeSelected={(idx: number[]) => {console.log(idx)}} />
                 </Card>
 
 
                 <Card>
-                <SuiteSummarizer 
+                <SuiteSummarizer
                     onFetch={ () => {testStore.fetchMoreExample ()}}
                     onSearch={() => { testStore.search() }}
                     onSelect={suiteStore.onSelectTest} />
@@ -49,7 +49,7 @@ export class App extends React.Component<{}, {}> {
                 </Card>
 
                 <Card>
-                <TestSummarizer 
+                <TestSummarizer
                     key={`${testStore.testResult ? testStore.testResult.key() : ""}`}
                     onFetch={ () => {testStore.fetchMoreExample ()}}
                     onSearch={() => { testStore.search() }} />

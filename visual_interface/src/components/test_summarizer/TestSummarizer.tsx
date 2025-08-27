@@ -58,7 +58,7 @@ export class TestSummarizer extends React.Component<TestSummarizerProps, {}> {
         const capability = result.capability ? result.capability.toUpperCase() : "";
 
         metas.push({
-            key: "Test", 
+            key: "Test",
             value: <code>
                 <b>{`[${type}] `}</b>
                 {capability ? <span>on <b>{`[${capability}] `}</b><br /></span> : null}
@@ -69,18 +69,18 @@ export class TestSummarizer extends React.Component<TestSummarizerProps, {}> {
             metas.push({key: "Desc.", value: <code style={{fontSize: "small"}}>{description}</code>});
         }
         metas.push({
-            key: "Result", 
+            key: "Result",
             value: <Row>
                 {this.renderVizPart("all cases", testStore.testResult.testStats)}
                 <br />
                 <Row>{this.renderSearch()}</Row>
-                { testStore.testStats.strRate("fail") === testStore.testResult.testStats.strRate("fail") 
-                    //|| testStore.searchTags.length === 0 
+                { testStore.testStats.strRate("fail") === testStore.testResult.testStats.strRate("fail")
+                    //|| testStore.searchTags.length === 0
                 ? null :
                     this.renderVizPart("filtered slice", testStore.testStats)}
                 </Row>
         })
-        
+
         return <Row>
             <h4 className="header">Test Summary</h4>
             {metas.map(desc => {
@@ -108,7 +108,7 @@ export class TestSummarizer extends React.Component<TestSummarizerProps, {}> {
             }
             tags[t.key].push(t);
         });
-        return <Input.Group 
+        return <Input.Group
             key={testStore.testResult.tags.length}
             size="small" style={{width: "100%", maxHeight: 50, verticalAlign:"middle"}}>
         <div className="info-header">Filter test cases</div>
@@ -133,16 +133,16 @@ export class TestSummarizer extends React.Component<TestSummarizerProps, {}> {
                 {tags[key].map(t => <Select.Option value={t.raw} key={t.raw}>{t.value}</Select.Option>)}
             </Select.OptGroup>)}
         </Select>
-        {/*<Icon  style={{paddingLeft: 5, verticalAlign:"super"}} type="filter" 
+        {/*<Icon  style={{paddingLeft: 5, verticalAlign:"super"}} type="filter"
             onClick={(e) => {e.preventDefault(); this.props.onSearch()}}></Icon>*/}
-        </Input.Group> 
+        </Input.Group>
     }
 
     public renderValidChecker(): JSX.Element {
         return <span>
         <Switch
                 size="small"
-                onChange={() => { 
+                onChange={() => {
                     testStore.togglefailCaseFilter();
                     this.props.onSearch();
                 }}
@@ -190,7 +190,7 @@ export class TestSummarizer extends React.Component<TestSummarizerProps, {}> {
             <Col span={14}>
                 <h4 className="header">Examples {this.renderValidChecker()}</h4>
                 <Spin spinning={this.loading}>
-                <div 
+                <div
                 //key={testStore.testResult.key() + testStore.searchTags.join("-") + `${testStore.failCaseOnly}`}
                 style={{maxHeight: baseWidth, overflow: "auto"}}>
                 <InfiniteScroll
@@ -200,7 +200,7 @@ export class TestSummarizer extends React.Component<TestSummarizerProps, {}> {
                     loadMore={this.handleInfiniteOnLoad}
                     hasMore={!this.loading}
                     useWindow={false}>
-                <List itemLayout="horizontal" 
+                <List itemLayout="horizontal"
                     size="small"
                     split={true}
                     //key={testStore.testResult.key() + testStore.searchTags.join("-") + `${testStore.failCaseOnly}`}

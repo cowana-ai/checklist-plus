@@ -1,17 +1,19 @@
 import collections
-import itertools
-import string
-import numpy as np
-import re
 import copy
-import os
-import json
-import munch
-import pickle
 import csv
+import itertools
+import json
+import os
+import pickle
+import re
+import string
 
+import munch
+import numpy as np
+
+from .multilingual import get_language_code, multilingual_params
 from .viewer.template_editor import TemplateEditor
-from .multilingual import multilingual_params, get_language_code
+
 
 class MunchWithAdd(munch.Munch):
     def __add__(self, other):
@@ -171,9 +173,9 @@ def find_all_keys(obj):
     for s in strings:
         f = string.Formatter()
         for x in f.parse(s):
-            r = x[1] if not x[2] else '%s:%s' % (x[1], x[2])
+            r = x[1] if not x[2] else f'{x[1]}:{x[2]}'
             ret.add(r)
-    return set([x for x in ret if x])
+    return {x for x in ret if x}
 
 def get_mask_index(obj):
     """Find all masked strings in obj and index them by mask id
@@ -195,8 +197,8 @@ def get_mask_index(obj):
     mask_finder = re.compile(r'\{(?:[^\}]*:)?mask\d*\}')
     mask_rep = re.compile(r'[\{\}]')
     find_options = re.compile(r'.*:')
-    ret = collections.defaultdict(lambda: [])
-    options = collections.defaultdict(lambda: '')
+    ret = collections.defaultdict(list)
+    options = collections.defaultdict(str)
     for s in strings:
         masks = mask_finder.findall(s)
         nooptions = [mask_rep.sub('', find_options.sub('', x)) for x in masks]
@@ -233,7 +235,7 @@ def get_all_strings(obj):
         k = [x for x in k if x]
         for x in k:
             ret = ret.union(x)
-    return set([x for x in ret if x])
+    return {x for x in ret if x}
 
 def get_all_strings_ordered(obj):
     ret = list()
@@ -254,7 +256,7 @@ def wrapped_random_choice(x, *args, **kwargs):
         idxs = np.random.choice(len(x), *args, **kwargs)
         return type(x)([x[i] for i in idxs])
 
-class Editor(object):
+class Editor:
     def __init__(self, language='english', model_name=None):
         self.lexicons = {}
         self.data = {}
@@ -744,7 +746,7 @@ class Editor(object):
         meta = []
         for v in vals:
             # print(v)
-            if remove_duplicates and len(v) != len(set([str(x) for x in v])):
+            if remove_duplicates and len(v) != len({str(x) for x in v}):
                 continue
             mapping = dict(zip(keys, v))
             # print(templates)

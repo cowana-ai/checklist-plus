@@ -1,16 +1,19 @@
-import ipywidgets as widgets
-from traitlets import Unicode, List, Dict
 import os
 import typing
-from spacy.lang.en import English
 from copy import deepcopy
+
+import ipywidgets as widgets
+from spacy.lang.en import English
+from traitlets import Dict, List, Unicode
+
 try:
-    from IPython.core.display import display, Javascript
+    from IPython.core.display import Javascript, display
 except:
     raise Exception("This module must be run in IPython.")
 DIRECTORY = os.path.abspath(os.path.dirname(__file__))
 
 from .test_summarizer import TestSummarizer
+
 
 @widgets.register
 class SuiteSummarizer(TestSummarizer):
@@ -24,8 +27,8 @@ class SuiteSummarizer(TestSummarizer):
 
     test_infos = List([]).tag(sync=True)
 
-    def __init__(self, 
-        test_infos: typing.Dict, 
+    def __init__(self,
+        test_infos: dict,
         select_test_fn: typing.Callable, \
         **kwargs):
         TestSummarizer.__init__(self, test_summary=None, testcases=[], **kwargs)

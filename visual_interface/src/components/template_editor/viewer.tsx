@@ -58,14 +58,14 @@ export const View = widgets.DOMWidgetView.extend({
         templateStore.setTagDict(this.model.get("tag_dict"))
         //templateStore.setSources(this.model.get("sources"));
         //templateStore.setOriToken(this.model.get("masked_tokens"));
-        
+
         //if (redraw) { this.renderApp(); }
     },
     onTemplatesChanged: function(redraw: boolean=false): void {
         templateStore.setTemplate(this.model.get("templates"))
         //templateStore.setSources(this.model.get("sources"));
         //templateStore.setOriToken(this.model.get("masked_tokens"));
-        
+
         //if (redraw) { this.renderApp(); }
     },
 
@@ -80,13 +80,13 @@ export const View = widgets.DOMWidgetView.extend({
         }
         const $app = document.createElement("div");
         $app.setAttribute("id", "app-wrapper");
-        
+
         const wrapper = <TemplateEditor onChangeSelected={this.onChangeSelected} />
-    
+
         ReactDOM.render(wrapper, $app);
         this.el.appendChild($app);
         $('.checklist').scroll(function(){
-            $('.checklist').scrollTop($(this).scrollTop());    
+            $('.checklist').scrollTop($(this).scrollTop());
         })
     },
 

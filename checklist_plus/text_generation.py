@@ -1,16 +1,22 @@
-from transformers import AutoTokenizer, AutoModelForMaskedLM
 import collections
 import itertools
-import numpy as np
+import json
 import re
-from transformers import GPT2Config
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
-from tqdm.auto import tqdm
+
+import numpy as np
+import requests
 import torch
 import torch.nn.functional as F
-from pattern.en import wordnet, pluralize
-import requests
-import json
+from pattern.en import pluralize, wordnet
+from tqdm.auto import tqdm
+from transformers import (
+    AutoModelForMaskedLM,
+    AutoTokenizer,
+    GPT2Config,
+    GPT2LMHeadModel,
+    GPT2Tokenizer,
+)
+
 
 def all_synsets(word, pos=None):
     map = {
@@ -72,7 +78,7 @@ def all_possible_related(words, pos=None, depth=1):
     ret = [y for x in all_descendents for y in x.senses]
     return clean_senses(ret)
 
-class TextGenerator(object):
+class TextGenerator:
     def __init__(self, url=None, model_name='roberta-base', prefix_sentence='', allow_word_pieces=False, **kwargs):
         self.url = url
         if url is None:
@@ -91,16 +97,16 @@ class TextGenerator(object):
             assert tmp[1] == ''
             self.space_prefix = tmp[0]
             if not self.allow_word_pieces:
-                self.with_space = torch.tensor(np.array(list(set([i for x, i in self.tokenizer.get_vocab().items() if x.startswith(self.space_prefix)]))), device=self.device);
+                self.with_space = torch.tensor(np.array(list({i for x, i in self.tokenizer.get_vocab().items() if x.startswith(self.space_prefix)})), device=self.device);
                 self.with_space_set = set(self.with_space.cpu().numpy())
-                self.special_chars = set([i for x, i in self.tokenizer.get_vocab().items() if not x.strip(self.space_prefix).isalnum()])
+                self.special_chars = {i for x, i in self.tokenizer.get_vocab().items() if not x.strip(self.space_prefix).isalnum()}
 
     def unmask_multiple(self, texts, beam_size=500, candidates=None, metric='avg', **kwargs):
         rets = []
         for text in texts:
             rets.append(self.unmask(text, beam_size, candidates))
-        scores = collections.defaultdict(lambda: 0.) if metric == 'avg' else collections.defaultdict(lambda: 999999999)
-        count = collections.defaultdict(lambda: 0.)
+        scores = collections.defaultdict(float) if metric == 'avg' else collections.defaultdict(lambda: 999999999)
+        count = collections.defaultdict(float)
         examples = {}
         longest = max([len(x[0][0]) for x in rets])
         rets = sorted(rets, key=lambda x:len(x[0][0]), reverse=True)
@@ -249,7 +255,7 @@ class TextGenerator(object):
             options = all_possible_hypernyms(words[0], pos=pos)
             ancestors = [x[0][0] for x in self.filter_options(texts, words[0], options, threshold)]
             # print(ancestors)
-            options = list(set([y for x in ancestors for y in all_possible_hyponyms(x, depth=depth)]))
+            options = list({y for x in ancestors for y in all_possible_hyponyms(x, depth=depth)})
         else:
             options = all_possible_related(words, depth=depth)
         return self.filter_options(texts, words[0], options, threshold)
@@ -288,7 +294,7 @@ class TextGenerator(object):
             # print()
             if text == texts[0]:
                 orig_ret = new_ret
-            in_all = in_all.intersection(set([x[0][0] for x in new_ret]))
+            in_all = in_all.intersection({x[0][0] for x in new_ret})
         return [x for x in orig_ret if x[0][0] in in_all]
 
     def antonym(self, text, word, threshold=5, synonym=False):

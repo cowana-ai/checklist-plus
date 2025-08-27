@@ -1,9 +1,11 @@
 import os
 import re
+import sys
+
 from setuptools import find_packages, setup
 from setuptools.command.develop import develop
 from setuptools.command.install import install
-import sys
+
 
 # Handle the notebook extension installation
 def enable_visual_interface():
@@ -38,7 +40,7 @@ pkg_name = os.getenv("PKG_NAME", "checklist_plus")
 # Read version from pyproject.toml
 def get_version():
     try:
-        with open("pyproject.toml", "r") as f:
+        with open("pyproject.toml") as f:
             content = f.read()
             version_match = re.search(r'^version\s*=\s*"(.*?)"', content, re.M)
             if version_match:
