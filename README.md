@@ -1,4 +1,4 @@
-# CheckList
+# CheckList Plus
 This repository contains code for testing NLP Models as described in the following paper:  
 >[Beyond Accuracy: Behavioral Testing of NLP models with CheckList](http://homes.cs.washington.edu/~marcotcr/acl20_checklist.pdf)  
 > Marco Tulio Ribeiro, Tongshuang Wu, Carlos Guestrin, Sameer Singh
@@ -18,7 +18,7 @@ Bibtex for citations:
 Table of Contents
 =================
 
-   * [CheckList](#checklist)
+   * [CheckList Plus](#checklist-plus)
       * [Table of Contents](#table-of-contents)
       * [Installation](#installation)
       * [Tutorials](#tutorials)
@@ -44,16 +44,16 @@ Table of Contents
 ## Installation
 From pypi:  
 ```bash
-pip install checklist
-jupyter nbextension install --py --sys-prefix checklist.viewer
-jupyter nbextension enable --py --sys-prefix checklist.viewer
+pip install checklist-plus-plus
+jupyter nbextension install --py --sys-prefix checklist_plus.viewer
+jupyter nbextension enable --py --sys-prefix checklist_plus.viewer
 ```
 Note:  `--sys-prefix` to install into python’s sys.prefix, which is useful for instance in virtual environments, such as with conda or virtualenv. If you are not in such environments, please switch to `--user` to install into the user’s home jupyter directories.
 
 From source:
 ```bash
-git clone git@github.com:marcotcr/checklist.git
-cd checklist
+git clone git@github.com:cowana-ai/checklist-plus.git
+cd checklist-plus-plus
 pip install -e .
 ```
 Either way, you need to install `pytorch` or `tensorflow` if you want to use masked language model suggestions:
@@ -70,7 +70,7 @@ Please note that the visualizations are implemented as ipywidgets, and don't wor
 1. [Generating data](notebooks/tutorials/1.%20Generating%20data.ipynb)
 2. [Perturbing data](notebooks/tutorials/2.%20Perturbing%20data.ipynb)
 3. [Test types, expectation functions, running tests](notebooks/tutorials/3.%20Test%20types,%20expectation%20functions,%20running%20tests.ipynb)
-4. [The CheckList process](notebooks/tutorials/4.%20The%20CheckList%20process.ipynb)
+4. [The CheckList Plus process](notebooks/tutorials/4.%20The%20CheckList%20process.ipynb)
 
 ## Paper tests
 ### Notebooks: how we created the tests in the paper
@@ -86,11 +86,10 @@ tar xvzf release_data.tar.gz
 #### Sentiment Analysis
 Loading the suite:
 ```python
-import checklist
-from checklist.test_suite import TestSuite
+import checklist_plus
+from checklist_plus.test_suite import TestSuite
 suite_path = 'release_data/sentiment/sentiment_suite.pkl'
 suite = TestSuite.from_file(suite_path)
-```
 Running tests with precomputed `bert` predictions (replace `bert` on `pred_path` with `amazon`, `google`, `microsoft`, or `roberta` for others):
 ```python
 pred_path = 'release_data/sentiment/predictions/bert'
@@ -103,11 +102,10 @@ Then, update `pred_path` with this file and run the lines above.
 
 #### QQP
 ```python
-import checklist
-from checklist.test_suite import TestSuite
+import checklist_plus
+from checklist_plus.test_suite import TestSuite
 suite_path = 'release_data/qqp/qqp_suite.pkl'
 suite = TestSuite.from_file(suite_path)
-```
 Running tests with precomputed `bert` predictions (replace `bert` on `pred_path` with `roberta` if you want):
 ```python
 pred_path = 'release_data/qqp/predictions/bert'
@@ -118,11 +116,10 @@ To test your own model, get predictions for pairs in `release_data/qqp/tests_n50
 
 #### SQuAD
 ```python
-import checklist
-from checklist.test_suite import TestSuite
+import checklist_plus
+from checklist_plus.test_suite import TestSuite
 suite_path = 'release_data/squad/squad_suite.pkl'
 suite = TestSuite.from_file(suite_path)
-```
 Running tests with precomputed `bert` predictions:
 ```python
 pred_path = 'release_data/squad/predictions/bert'
@@ -140,14 +137,13 @@ See [this notebook](notebooks/tutorials/5.%20Testing%20transformer%20pipelines.i
 See [1. Generating data](notebooks/tutorials/1.%20Generating%20data.ipynb) for more details.
 
 ```python
-import checklist
-from checklist.editor import Editor
+import checklist_plus
+from checklist_plus.editor import Editor
 import numpy as np
 editor = Editor()
 ret = editor.template('{first_name} is {a:profession} from {country}.',
                        profession=['lawyer', 'doctor', 'accountant'])
 np.random.choice(ret.data, 3)
-```
 > ['Mary is a doctor from Afghanistan.',  
        'Jordan is an accountant from Indonesia.',  
        'Kayla is a lawyer from Sierra Leone.']
@@ -198,14 +194,13 @@ editor.visual_suggest('This is {a:mask} movie.')
 Just initialize the editor with the `language` argument (should work with language names and iso 639-1 codes):
 
 ```python
-import checklist
-from checklist.editor import Editor
+import checklist_plus
+from checklist_plus.editor import Editor
 import numpy as np
 # in Portuguese
 editor = Editor(language='portuguese')
 ret = editor.template('O João é um {mask}.',)
 ret.data[:3]
-```
 > ['O João é um português.',  
 'O João é um poeta.',  
 'O João é um brasileiro.']
@@ -226,14 +221,13 @@ We're using [FlauBERT](https://arxiv.org/abs/1912.05372) for french, [German BER
 ### Lexicons (somewhat multilingual)
 `editor.lexicons` is a dictionary, which can be used in templates. For example:
 ```python
-import checklist
-from checklist.editor import Editor
+import checklist_plus
+from checklist_plus.editor import Editor
 import numpy as np
 # Default: English
 editor = Editor()
 ret = editor.template('{male1} went to see {male2} in {city}.', remove_duplicates=True)
 list(np.random.choice(ret.data, 3))
-```
 > ['Dan went to see Hugh in Riverside.',  
  'Stephen went to see Eric in Omaha.',  
  'Patrick went to see Nick in Kansas City.']
@@ -291,8 +285,8 @@ See [2.Perturbing data](notebooks/tutorials/2.%20Perturbing%20data.ipynb) for mo
 Custom perturbation function:
 ```python
 import re
-import checklist
-from checklist.perturb import Perturb
+import checklist_plus
+from checklist_plus.perturb import Perturb
 def replace_john_with_others(x, *args, **kwargs):
     # Returns empty (if John is not present) or list of strings with John replaced by Luke and Mark
     if not re.search(r'\bJohn\b', x):
@@ -331,10 +325,10 @@ See [3. Test types, expectation functions, running tests](notebooks/tutorials/3.
 
 MFT:
 ```python
-import checklist
-from checklist.editor import Editor
-from checklist.perturb import Perturb
-from checklist.test_types import MFT, INV, DIR
+import checklist_plus
+from checklist_plus.editor import Editor
+from checklist_plus.perturb import Perturb
+from checklist_plus.test_types import MFT, INV, DIR
 editor = Editor()
 
 t = editor.template('This is {a:adj} {mask}.',  
@@ -357,7 +351,7 @@ test2 = INV(**t)
 ```
 DIR:
 ```python
-from checklist.expect import Expect
+from checklist_plus.expect import Expect
 def add_negative(x):
     phrases = ['Anyway, I thought it was bad.', 'Having said this, I hated it', 'The director should be fired.']
     return ['%s %s' % (x, p) for p in phrases]
@@ -368,7 +362,7 @@ test3 = DIR(**t, expect=monotonic_decreasing)
 ```
 Running tests directly:
 ```python
-from checklist.pred_wrapper import PredictorWrapper
+from checklist_plus.pred_wrapper import PredictorWrapper
 # wrapped_pp returns a tuple with (predictions, softmax confidences)
 wrapped_pp = PredictorWrapper.wrap_softmax(model.predict_proba)
 test.run(wrapped_pp)
@@ -427,28 +421,26 @@ def changed_pred(orig_pred, pred, orig_conf, conf, labels=None, meta=None):
 expect_fn = Expect.pairwise(changed_pred)
 ```
 There's also `Expect.testcase` and `Expect.test`, amongst many others.  
-Check out [expect.py](checklist/expect.py) for more details.
+Check out [expect.py](checklist_plus/expect.py) for more details.
 
 
 ### Test Suites
-See [4. The CheckList process](notebooks/tutorials/4.%20The%20CheckList%20process.ipynb) for more details.
+See [4. The CheckList Plus process](notebooks/tutorials/4.%20The%20CheckList%20process.ipynb) for more details.
 
 Adding tests:
 ```python
-from checklist.test_suite import TestSuite
+from checklist_plus.test_suite import TestSuite
 # assuming test exists:
 suite.add(test)
-```
 
 Running a suite is the same as running an individual test, either directly or through a file:
 
 ```python
-from checklist.pred_wrapper import PredictorWrapper
+from checklist_plus.pred_wrapper import PredictorWrapper
 # wrapped_pp returns a tuple with (predictions, softmax confidences)
 wrapped_pp = PredictorWrapper.wrap_softmax(model.predict_proba)
 suite.run(wrapped_pp)
 # or suite.run_from_file, see examples above
-```
 
 To visualize results, you can call `suite.summary()` (same as `test.summary`), or `suite.visual_summary_table()`. This is what the latter looks like for BERT on sentiment analysis:
 ```python

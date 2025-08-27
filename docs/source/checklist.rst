@@ -1,69 +1,69 @@
-checklist package
+checklist_plus package
 =================
 
 Submodules
 ----------
 
-checklist.abstract\_test module
+checklist_plus.abstract\_test module
 -------------------------------
 
-.. automodule:: checklist.abstract_test
+.. automodule:: checklist_plus.abstract_test
    :members:
    :undoc-members:
    :show-inheritance:
 
-checklist.editor module
+checklist_plus.editor module
 -----------------------
 
-.. automodule:: checklist.editor
+.. automodule:: checklist_plus.editor
    :members:
    :undoc-members:
    :show-inheritance:
 
-checklist.expect module
+checklist_plus.expect module
 -----------------------
 
-.. automodule:: checklist.expect
+.. automodule:: checklist_plus.expect
    :members:
    :undoc-members:
    :show-inheritance:
 
-checklist.perturb module
+checklist_plus.perturb module
 ------------------------
 
-.. automodule:: checklist.perturb
+.. automodule:: checklist_plus.perturb
    :members:
    :undoc-members:
    :show-inheritance:
 
-checklist.pred\_wrapper module
+checklist_plus.pred\_wrapper module
 ------------------------------
 
-.. automodule:: checklist.pred_wrapper
+.. automodule:: checklist_plus.pred_wrapper
    :members:
    :undoc-members:
    :show-inheritance:
 
-checklist.test\_suite module
+checklist_plus.test\_suite module
 ----------------------------
 
-.. automodule:: checklist.test_suite
+.. automodule:: checklist_plus.test_suite
    :members:
    :undoc-members:
    :show-inheritance:
 
-checklist.test\_types module
+checklist_plus.test\_types module
 ----------------------------
 
-.. automodule:: checklist.test_types
+.. automodule:: checklist_plus.test_types
    :members:
    :undoc-members:
    :show-inheritance:
 
-checklist.text\_generation module
+checklist_plus.text\_generation module
 ---------------------------------
 
-.. automodule:: checklist.text_generation
+.. automodule:: checklist_plus.text_generation
    :members:
    :undoc-members:
    :show-inheritance:
@@ -72,7 +72,7 @@ checklist.text\_generation module
 Module contents
 ---------------
 
-.. automodule:: checklist
+.. automodule:: checklist_plus
    :members:
    :undoc-members:
    :show-inheritance:
