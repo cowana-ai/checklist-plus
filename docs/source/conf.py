@@ -16,7 +16,7 @@ import sys
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath('..'))
 sys.path.insert(0, os.path.abspath('../..'))
-sys.path.insert(0, os.path.abspath('../../checklist'))
+sys.path.insert(0, os.path.abspath('../../checklist_plus'))
 
 autodoc_mock_imports = [
     'spacy', 'spacy.cli', 'nltk', 'nltk.corpus', 'nltk.tree', 'pattern',
@@ -29,7 +29,7 @@ autodoc_mock_imports = [
 ]
 # -- Project information -----------------------------------------------------
 
-project = 'checklist'
+project = 'checklist_plus'
 copyright = '2020, Marco Tulio Ribeiro'
 author = 'Marco Tulio Ribeiro'
 

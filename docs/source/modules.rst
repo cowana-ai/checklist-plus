@@ -1,4 +1,4 @@
-checklist
+checklist_plus
 =========
 
 .. toctree::
