@@ -58,7 +58,7 @@ setup(
     long_description_content_type="text/markdown",
     author="Chingis Owana",
     author_email="your.email@example.com",
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     cmdclass={
         'develop': PostDevelopCommand,
         'install': PostInstallCommand,
