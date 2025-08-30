@@ -26,6 +26,8 @@ from transformers import (
     GPT2Tokenizer,
 )
 
+from checklist_plus.config import cfg
+
 
 class UniqueCompletions(BaseModel):
     """Pydantic model for generating unique text completions."""
@@ -120,16 +122,16 @@ class TextGenerator:
     def unmask_multiple(self, texts, beam_size=500, candidates=None, metric='avg', **kwargs):
         rets = []
         for text in texts:
-            print('text:', text)
-            print('candidates:', candidates)
-            print(len(self.unmask(text, beam_size, candidates)))
+            # print('text:', text)
+            # print('candidates:', candidates)
+            # print(len(self.unmask(text, beam_size, candidates)))
             rets.append(self.unmask(text, beam_size, candidates))
         scores = collections.defaultdict(float) if metric == 'avg' else collections.defaultdict(lambda: 999999999)
         count = collections.defaultdict(float)
         examples = {}
         longest = max([len(x[0][0]) for x in rets])
         rets = sorted(rets, key=lambda x:len(x[0][0]), reverse=True)
-        print('rets:', rets)
+        # print('rets:', rets)
         for r in rets:
             for x in r:
                 tup = tuple(x[0])
@@ -153,7 +155,7 @@ class TextGenerator:
             for x in scores:
                 scores[x] = scores[x] / len(texts)
         scores = sorted(scores.items(), key=lambda x:x[1], reverse=True)
-        print([(list(x[0]), examples[x[0]], x[1]) for x in scores])
+        # print([(list(x[0]), examples[x[0]], x[1]) for x in scores])
         return [(list(x[0]), examples[x[0]], x[1]) for x in scores]
 
 
@@ -164,7 +166,7 @@ class TextGenerator:
             r = requests.post(url='%s/unmask' % self.url, data={'params': json.dumps(params)})
             r = [tuple(x) for x in json.loads(r.text)]
             return r
-        print(text_with_mask)
+        # print(text_with_mask)
         tokenizer = self.tokenizer
         model = self.model
         encoded = np.array(tokenizer.encode(self.prefix_sentence + text_with_mask, add_special_tokens=True))
@@ -229,7 +231,7 @@ class TextGenerator:
             text = tokenizer.decode(cop[1 + self.prefix_len:-1])
             ret.append((words, text, score / masked.shape[0]))
         ret = sorted(ret, key=lambda x:x[2], reverse=True)
-        print('ret:', ret)
+        # print('ret:', ret)
         return ret
     def fill_in_between(self, pieces, beam_size=10, candidates=None):
         text = ''
@@ -433,7 +435,7 @@ class LLMTextGenerator:
 
         return DummyTokenizer()
 
-    def unmask_multiple(self, texts, beam_size=500, candidates=None, metric='avg', context=None, **kwargs):
+    def unmask_multiple(self, texts, n_completions=1, candidates=None, metric='avg', context=None, **kwargs):
         """
         Fill multiple mask tokens using LLM.
 
@@ -441,7 +443,7 @@ class LLMTextGenerator:
         ----------
         texts : List[str]
             List of texts with mask tokens
-        beam_size : int
+        n_completions : int
             Number of suggestions to generate per text
         candidates : List[str], optional
             Candidate words to consider (not used in LLM version)
@@ -460,7 +462,7 @@ class LLMTextGenerator:
         """
         all_results = []
         unique_completions = set()  # Track unique completions across all texts
-        print("texts:", texts)
+        # print("texts:", texts)
 
         for text in texts:
             # Count the number of masks in the text
@@ -475,68 +477,46 @@ class LLMTextGenerator:
             try:
                 # Create context-aware prompt template (general for any number of masks)
                 if context:
+                    prompt_text = f"{cfg.config.text_generation.llm.unmask_prompt.task_context}\n{cfg.config.text_generation.llm.unmask_prompt.background_data}\n{cfg.config.text_generation.llm.unmask_prompt.rules}\n{cfg.config.text_generation.llm.unmask_prompt.task}\n{cfg.config.text_generation.llm.unmask_prompt.output_format}"
                     completion_template = PromptTemplate(
-                        input_variables=["beam_size", "llm_text", "context", "mask_count"],
-                        template="""You are a text completion expert. Complete the given text by filling in ALL {mask_count} blank(s) (___).
-Focus on generating completions related to: {context}
-
-Generate exactly {beam_size} unique, diverse sets of completions that fit the context well and relate to the specified topic. Each completion should be either:
-1) A single word (e.g., "performance", "strategy", "goal")
-2) A possessive noun phrase (e.g., "goalkeeper's performance", "team's strategy", "player's goal")
-
-Avoid longer phrases like "museum that I visited" or "beautiful sunset today".
-
-Text to complete: {llm_text}
-
-Provide each set as a list with {mask_count} item(s) in order. Examples:
-- For 1 mask: [["performance"], ["strategy"], ["goal"]]
-- For 2 masks: [["game", "it"], ["performance", "food"], ["movie", "service"]]"""
+                        input_variables=["n_completions", "llm_text", "context", "mask_count"],
+                        template=prompt_text
                     )
 
                     # Format the prompt with context
                     formatted_prompt = completion_template.format(
-                        beam_size=min(beam_size, 20 if mask_count == 1 else 10),
+                        n_completions=n_completions,
                         llm_text=llm_text,
                         context=context,
                         mask_count=mask_count
                     )
                 else:
+                    prompt_text = f"{cfg.config.text_generation.llm.unmask_prompt.task_context}\n{cfg.config.text_generation.llm.unmask_prompt.rules}\n{cfg.config.text_generation.llm.unmask_prompt.task}\n{cfg.config.text_generation.llm.unmask_prompt.output_format}"
                     completion_template = PromptTemplate(
-                        input_variables=["beam_size", "llm_text", "mask_count"],
-                        template="""You are a text completion expert. Complete the given text by filling in ALL {mask_count} blank(s) (___).
-Generate exactly {beam_size} unique, diverse sets of completions that fit the context well. Each completion should be either:
-1) A single word (e.g., "performance", "weather", "technology")
-2) A possessive noun phrase (e.g., "goalkeeper's performance", "today's weather", "company's technology")
-
-Avoid longer phrases like "museum that I visited" or "beautiful sunset today". Cover diverse topics (science, emotions, technology, nature, society, arts, etc.).
-
-Text to complete: {llm_text}
-
-Provide each set as a list with {mask_count} item(s) in order. Examples:
-- For 1 mask: [["performance"], ["weather"], ["technology"]]
-- For 2 masks: [["game", "it"], ["performance", "food"], ["movie", "service"]]"""
+                        input_variables=["n_completions", "llm_text", "mask_count"],
+                        template=prompt_text
                     )
 
                     # Format the prompt without context (diverse topics)
                     formatted_prompt = completion_template.format(
-                        beam_size=min(beam_size, 20 if mask_count == 1 else 10),
+                        n_completions=n_completions,
                         llm_text=llm_text,
                         mask_count=mask_count
                     )
 
-                print("formatted_prompt:", formatted_prompt)
+                # print("formatted_prompt:", formatted_prompt)
 
                 # Use structured output with Pydantic model
                 structured_llm = self.llm_client.with_structured_output(UniqueCompletions)
-                print("here")
+                # print("here")
                 response = structured_llm.invoke(formatted_prompt)
-                print("response:", response)
+                # print("response:", response)
 
                 # Extract completions from Pydantic model
                 completions = response.completions if hasattr(response, 'completions') else []
 
                 # Process each completion set
-                for i, completion_set in enumerate(completions[:beam_size]):
+                for i, completion_set in enumerate(completions[:n_completions]):
                     if len(completion_set) == mask_count:
                         # Replace masks one by one in order
                         full_text = text
@@ -552,16 +532,15 @@ Provide each set as a list with {mask_count} item(s) in order. Examples:
                         print(f"Warning: completion set {completion_set} has {len(completion_set)} items but expected {mask_count}")
 
             except Exception as e:
-                print(e)
                 print(f"LLM unmask failed for text '{text}': {e}")
                 # Fallback: return original text with empty completions
                 all_results.append(([""] * mask_count, text, 0.0))
 
-        print('all_results:', all_results)
-        print(f'Total unique completions generated: {len(unique_completions)}')
+        # print('all_results:', all_results)
+        # print(f'Total unique completions generated: {len(unique_completions)}')
         return all_results
 
-    def unmask(self, text_with_mask, beam_size=10, candidates=None):
+    def unmask(self, text_with_mask, n_completions=10, candidates=None):
         raise NotImplementedError("Use unmask_multiple for LLMTextGenerator")
 
     def replace_word(self, text, word, threshold=5, beam_size=100, candidates=None):
