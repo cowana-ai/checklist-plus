@@ -1,0 +1,15 @@
+llm:
+  unmask_prompt:
+    task_context: "You are a text completion expert. Complete the given text by filling in ALL {mask_count} blank(s) (___)."
+    background_data: "Focus on generating completions related to: {context}"
+    rules: |
+      Generate exactly {n_completions} unique, diverse sets of completions that fit the context well and relate to the specified topic. Each completion should be either:
+      1) A single word (e.g., "performance", "strategy", "goal")
+      2) A possessive noun phrase (e.g., "goalkeeper's performance", "team's strategy", "player's goal")
+
+      Avoid longer phrases like "museum that I visited" or "beautiful sunset today".
+    task: "Text to complete: {llm_text}"
+    output_format: |
+      Provide each set as a list with {mask_count} item(s) in order. Examples:
+      - For 1 mask: [["performance"], ["strategy"], ["goal"]]
+      - For 2 masks: [["game", "it"], ["performance", "food"], ["movie", "service"]]

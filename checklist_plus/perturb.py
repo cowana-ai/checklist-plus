@@ -7,7 +7,7 @@ import numpy as np
 import pattern
 from pattern.en import tenses
 
-from .editor import MunchWithAdd, recursive_apply
+from checklist_plus.editor.base import MunchWithAdd, recursive_apply
 
 
 def load_data():
