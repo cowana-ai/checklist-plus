@@ -1,0 +1,3 @@
+defaults:
+  - _self_ # indicate the current (main) config file
+  - config/text_generation/default_generation.yaml
