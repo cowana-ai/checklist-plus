@@ -8,8 +8,27 @@ llm:
       2) A possessive noun phrase (e.g., "goalkeeper's performance", "team's strategy", "player's goal")
 
       Avoid longer phrases like "museum that I visited" or "beautiful sunset today".
-    task: "Text to complete: {llm_text}"
+    task: "Text to complete: {text}"
+    thinking_step: "Consider the context and topic before you respond."
     output_format: |
       Provide each set as a list with {mask_count} item(s) in order. Examples:
       - For 1 mask: [["performance"], ["strategy"], ["goal"]]
       - For 2 masks: [["game", "it"], ["performance", "food"], ["movie", "service"]]
+
+  paraphrase_prompt:
+    task_context: "You are a paraphrasing expert. Generate paraphrases of the given text."
+    tone_context: "Style your paraphrases to match the following style: {style}."
+    background_data: "Focus on paraphrasing text related to: {context}. Try to use terminology and phrasing common in this domain."
+    rules: |
+      Generate exactly {n_paraphrases} unique paraphrases that preserve the original meaning while using different words and sentence structures.
+      Each paraphrase should be:
+      - Each paraphrase must preserve the original meaning
+      - Use different vocabulary and sentence structures
+      - Preserve context and domain relevance
+      - Make each paraphrase unique and natural
+      - {length_instruction}
+    task: "Text to paraphrase: {text}"
+    thinking_step: "Consider synonyms, sentence restructuring, and varying lengths before you respond."
+    output_format: |
+      Provide the paraphrases as a list. Example:
+      ["Paraphrase 1", "Paraphrase 2", "Paraphrase 3"]
