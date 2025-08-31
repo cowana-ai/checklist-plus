@@ -8,7 +8,7 @@ from langchain.schema import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from checklist_plus.config import cfg
-from checklist_plus.text_generation.models import UniqueCompletions
+from checklist_plus.text_generation.models import ParaphraseResponse, UniqueCompletions
 
 
 class LLMTextGenerator:
@@ -116,57 +116,53 @@ class LLMTextGenerator:
         unique_completions = set()  # Track unique completions across all texts
         # print("texts:", texts)
 
+        prompt_parts = []
+        input_variables = ["n_completions", "text", "mask_count"]
+        input_data = {
+            "n_completions": n_completions,
+        }
+        if context:
+            input_variables.append("context")
+            input_data["context"] = context
+        prompt_parts.append(cfg.config.text_generation.llm.unmask_prompt.task_context)
+        if context:
+            prompt_parts.append(cfg.config.text_generation.llm.unmask_prompt.background_data)
+        prompt_parts.extend([cfg.config.text_generation.llm.unmask_prompt.rules,
+                        cfg.config.text_generation.llm.unmask_prompt.task,
+                        cfg.config.text_generation.llm.unmask_prompt.thinking_step,
+                        cfg.config.text_generation.llm.unmask_prompt.output_format])
+        prompt_text = "\n".join(prompt_parts)
+        completion_template = PromptTemplate(
+            input_variables=input_variables,
+            template=prompt_text
+        )
+        formatted_prompts = []
         for text in texts:
             # Count the number of masks in the text
             mask_count = text.count(self.tokenizer.mask_token)
-
             if mask_count == 0:
                 continue
-
-            # Replace [MASK] with a more LLM-friendly placeholder
+            input_data["mask_count"] = mask_count
             llm_text = text.replace(self.tokenizer.mask_token, "___")
+            input_data["text"] = llm_text
+            # Replace [MASK] with a more LLM-friendly placeholder
+                                # Format the prompt with context
+            formatted_prompt = completion_template.format(
+                        **input_data
+            )
+            formatted_prompts.append(formatted_prompt)
 
-            try:
-                # Create context-aware prompt template (general for any number of masks)
-                if context:
-                    prompt_text = f"{cfg.config.text_generation.llm.unmask_prompt.task_context}\n{cfg.config.text_generation.llm.unmask_prompt.background_data}\n{cfg.config.text_generation.llm.unmask_prompt.rules}\n{cfg.config.text_generation.llm.unmask_prompt.task}\n{cfg.config.text_generation.llm.unmask_prompt.output_format}"
-                    completion_template = PromptTemplate(
-                        input_variables=["n_completions", "llm_text", "context", "mask_count"],
-                        template=prompt_text
-                    )
+        try:
+            # Use structured output with Pydantic model
+            structured_llm = self.llm_client.with_structured_output(UniqueCompletions)
+            # print("here")
+            responses = structured_llm.batch(formatted_prompts)
+            # print("responses:", responses)
 
-                    # Format the prompt with context
-                    formatted_prompt = completion_template.format(
-                        n_completions=n_completions,
-                        llm_text=llm_text,
-                        context=context,
-                        mask_count=mask_count
-                    )
-                else:
-                    prompt_text = f"{cfg.config.text_generation.llm.unmask_prompt.task_context}\n{cfg.config.text_generation.llm.unmask_prompt.rules}\n{cfg.config.text_generation.llm.unmask_prompt.task}\n{cfg.config.text_generation.llm.unmask_prompt.output_format}"
-                    completion_template = PromptTemplate(
-                        input_variables=["n_completions", "llm_text", "mask_count"],
-                        template=prompt_text
-                    )
-
-                    # Format the prompt without context (diverse topics)
-                    formatted_prompt = completion_template.format(
-                        n_completions=n_completions,
-                        llm_text=llm_text,
-                        mask_count=mask_count
-                    )
-
-                # print("formatted_prompt:", formatted_prompt)
-
-                # Use structured output with Pydantic model
-                structured_llm = self.llm_client.with_structured_output(UniqueCompletions)
-                # print("here")
-                response = structured_llm.invoke(formatted_prompt)
-                # print("response:", response)
-
-                # Extract completions from Pydantic model
-                completions = response.completions if hasattr(response, 'completions') else []
-
+            # Extract completions from Pydantic model
+            completions_all = [resp.completions for resp in responses if hasattr(resp, 'completions')]
+            assert len(completions_all) == len(formatted_prompts), "Mismatch in number of responses"
+            for completions, text in zip(completions_all, texts):
                 # Process each completion set
                 for i, completion_set in enumerate(completions[:n_completions]):
                     if len(completion_set) == mask_count:
@@ -183,10 +179,10 @@ class LLMTextGenerator:
                     else:
                         print(f"Warning: completion set {completion_set} has {len(completion_set)} items but expected {mask_count}")
 
-            except Exception as e:
-                print(f"LLM unmask failed for text '{text}': {e}")
-                # Fallback: return original text with empty completions
-                all_results.append(([""] * mask_count, text, 0.0))
+        except Exception as e:
+            print(f"LLM unmask failed for text '{text}': {e}")
+            # Fallback: return original text with empty completions
+            all_results.append(([""] * mask_count, text, 0.0))
 
         # print('all_results:', all_results)
         # print(f'Total unique completions generated: {len(unique_completions)}')
@@ -530,6 +526,124 @@ Find more general terms for '{word}' that fit well in this context:
                 print(f"LLM related_words failed for words '{words}' in text '{text}': {e}")
 
         return results
+
+    def paraphrase(self, texts, n_paraphrases=5, context=None, style=None,
+                   length_preference=None, preserve_meaning=True,
+                   temperature=0.7, **kwargs):
+        """
+        Generate paraphrases of text using LLM with structured output and batch processing.
+
+        Parameters
+        ----------
+        texts : List[str] or str
+            Text(s) to paraphrase
+        n_paraphrases : int
+            Number of paraphrases to generate per text
+        context : str, optional
+            Context or domain to guide paraphrasing (e.g., "formal", "casual", "academic", "business")
+        style : str, optional
+            Specific style instructions (e.g., "more formal", "simpler language", "technical")
+        length_preference : str, optional
+            Length preference: "shorter", "longer", or "similar" (default: similar)
+        preserve_meaning : bool
+            If True, emphasize preserving original meaning (default: True)
+        temperature : float
+            LLM temperature for creativity (0.0-1.0, default: 0.7)
+        **kwargs
+            Additional parameters
+
+        Returns
+        -------
+        List[str]
+            List of paraphrased texts
+        """
+        if isinstance(texts, str):
+            texts = [texts]
+
+        # Determine length instruction based on preference
+        length_instruction = ""
+        if length_preference:
+            if length_preference.lower() == "shorter":
+                length_instruction = "Make the paraphrases more concise than the original"
+            elif length_preference.lower() == "longer":
+                length_instruction = "Make the paraphrases more detailed than the original"
+            elif length_preference.lower() == "similar":
+                length_instruction = "Keep the paraphrases similar in length to the original"
+
+        prompt_parts = []
+        input_variables = ["n_paraphrases", "text", "length_instruction"]
+        input_data = {
+            "n_paraphrases": n_paraphrases,
+            "length_instruction": length_instruction
+        }
+        prompt_parts.extend([cfg.config.text_generation.llm.paraphrase_prompt.task_context])
+        if style:
+            prompt_parts.append(cfg.config.text_generation.llm.paraphrase_prompt.tone_context)
+            input_variables.append("style")
+            input_data["style"] = style
+        if context:
+            prompt_parts.append(cfg.config.text_generation.llm.paraphrase_prompt.background_data)
+            input_variables.append("context")
+            input_data["context"] = context
+        prompt_parts.extend([cfg.config.text_generation.llm.paraphrase_prompt.rules,
+                                cfg.config.text_generation.llm.paraphrase_prompt.task,
+                                cfg.config.text_generation.llm.paraphrase_prompt.thinking_step,
+                                cfg.config.text_generation.llm.paraphrase_prompt.output_format])
+
+        prompt_text = "\n".join(prompt_parts)
+        paraphrase_template = PromptTemplate(
+            input_variables=input_variables,
+            template=prompt_text
+        )
+
+        # Create all formatted prompts for batch processing
+        formatted_prompts = []
+        for text in texts:
+            input_data["text"] = text
+            formatted_prompt = paraphrase_template.format(**input_data)
+            formatted_prompts.append(formatted_prompt)
+
+        # Create LLM client with specified temperature
+        temp_llm = ChatOpenAI(
+            openai_api_key=self.llm_client.openai_api_key,
+            model_name=self.model_name,
+            temperature=temperature
+        )
+
+        # Use structured output with Pydantic model
+        structured_llm = temp_llm.with_structured_output(ParaphraseResponse)
+
+        # Batch process all prompts
+        all_paraphrases = []
+        try:
+            # Use batch method for efficient processing
+            responses = structured_llm.batch(formatted_prompts)
+
+            for i, response in enumerate(responses):
+                original_text = texts[i]
+
+                # Extract paraphrases from Pydantic model
+                paraphrases = response.paraphrases if hasattr(response, 'paraphrases') else []
+
+                # Filter out any paraphrases that are identical to the original
+                filtered_paraphrases = [
+                    para for para in paraphrases
+                    if para.strip() and para.strip().lower() != original_text.strip().lower()
+                ]
+
+                # Ensure we have the requested number of paraphrases
+                if len(filtered_paraphrases) < n_paraphrases:
+                    # If we don't have enough unique paraphrases, pad with what we have
+                    while len(filtered_paraphrases) < n_paraphrases and filtered_paraphrases:
+                        filtered_paraphrases.append(filtered_paraphrases[0])
+
+                all_paraphrases.extend(filtered_paraphrases[:n_paraphrases])
+
+        except Exception as e:
+            print(f"LLM batch paraphrase failed: {e}")
+            raise e
+
+        return all_paraphrases
 
     def filter_options(self, texts, word, options, threshold=5):
         """Filter options based on context using LLM."""
