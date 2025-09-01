@@ -2,16 +2,17 @@ llm:
   unmask_prompt:
     task_context: "You are a text completion expert. Complete the given text by filling in ALL {mask_count} blank(s) (___)."
     background_data:
-      context: "Focus on generating completions related to: {context}"
-      candidates: "Consider the following candidate words: {candidates}. Pick from these if they fit well and sort them by relevance."
+      context: "Focus on generating completions related to following context: {context}"
+      candidates: "Consider the following candidate words: {candidates}. Pick from these if they fit well and sort them by relevance (descending)."
     rules: |
       Generate exactly {n_completions} unique, diverse sets of completions that fit the context well and relate to the specified topic. Each completion should be either:
       1) A single word (e.g., "performance", "strategy", "goal")
       2) A possessive noun phrase (e.g., "goalkeeper's performance", "team's strategy", "player's goal")
+      3) If you are given a list of candidates, you must select from them and sort by relevance (descending).
 
       Avoid longer phrases like "museum that I visited" or "beautiful sunset today".
     task: "Text to complete: {text}"
-    thinking_step: "Consider the context and topic before you respond."
+    thinking_step: "Consider the context before you respond. If candidates are provided, consider them one by one and select the most relevant."
     output_format: |
       Provide each set as a list with {mask_count} item(s) in order. Examples:
       - For 1 mask: [["performance"], ["strategy"], ["goal"]]

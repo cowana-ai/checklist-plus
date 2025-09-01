@@ -3,6 +3,7 @@ import os
 import re
 from typing import Any, Dict, List, Optional, Union
 
+import numpy as np
 from langchain.llms.base import LLM
 from langchain.prompts import PromptTemplate
 from langchain.schema import HumanMessage, SystemMessage
@@ -119,20 +120,17 @@ class LLMTextGenerator(TextGenerator):
         all_results = []
         unique_completions = set()  # Track unique completions across all texts
         # print("texts:", texts)
-        if context is not None and candidates is not None:
-            raise ValueError("Cannot specify both context and candidates")
         prompt_parts = []
         input_variables = ["n_completions", "text", "mask_count"]
         input_data = {
             "n_completions": n_completions,
         }
         prompt_parts.append(prompt_config.task_context)
-
+        # print("candidates:", candidates)
         if candidates is not None:
             input_variables.append("candidates")
             input_data["candidates"] = ", ".join(candidates)
             prompt_parts.append(prompt_config.background_data.candidates)
-            context = candidates[-1]  # Use last candidate as context
 
         if context:
             input_variables.append("context")
@@ -144,6 +142,7 @@ class LLMTextGenerator(TextGenerator):
                         prompt_config.thinking_step,
                         prompt_config.output_format])
         prompt_text = "\n".join(prompt_parts)
+        # print("prompt_text:", context)
         completion_template = PromptTemplate(
             input_variables=input_variables,
             template=prompt_text
@@ -198,8 +197,8 @@ class LLMTextGenerator(TextGenerator):
             # Fallback: return original text with empty completions
             all_results.append(([""] * mask_count, text, 0.0))
 
-        print('all_results:', all_results)
-        print(f'Total unique completions generated: {len(unique_completions)}')
+        # print('all_results:', all_results)
+        # print(f'Total unique completions generated: {len(unique_completions)}')
         return all_results
 
     def unmask(self, text_with_mask, n_completions=10, candidates=None, context=None, **kwargs):
@@ -224,11 +223,11 @@ class LLMTextGenerator(TextGenerator):
         List[Tuple[List[str], str, float]]
             List of (words, full_text, score) tuples
         """
-        print("text_with_mask:", text_with_mask)
+        # print("text_with_mask:", text_with_mask)
         # Use unmask_multiple with a single text and return the results
         results = self.unmask_multiple([text_with_mask], n_completions=n_completions,
                                      candidates=candidates, context=context, **kwargs)
-        print("Unmask results:", results[0])
+        # print("Unmask results:", results[0])
         return results
 
     def paraphrase(self, texts, n_paraphrases=5, context=None, style=None,
@@ -344,3 +343,49 @@ class LLMTextGenerator(TextGenerator):
             raise
 
         return all_paraphrases
+
+    def filter_options(self, texts, word, options, threshold=5, **kwargs):
+        if type(texts) != list:
+            texts = [texts]
+        context = f"Only **{kwargs['type']}** for the word '{word}' in the given text."
+        options = options + [word]
+        in_all = set(options)
+        orig_ret = []
+
+        # Store original temperature and set to 0 for deterministic filtering
+        original_temp = getattr(self.llm_client, 'temperature', None)
+        if hasattr(self.llm_client, 'bind'):
+            temp_llm = self.llm_client.bind(temperature=0)
+            # Temporarily replace the client
+            original_client = self.llm_client
+            self.llm_client = temp_llm
+
+        try:
+            for text in texts:
+                masked = re.sub(r'\b%s\b' % re.escape(word), self.tokenizer.mask_token, text)
+                if masked == text:
+                    continue
+                ret = self.unmask(masked, beam_size=100, candidates=options, context=context, **kwargs)
+                if not ret:
+                    in_all = in_all.intersection(set())
+                    continue
+                non_word = [x for x in ret if np.all([y not in [self.tokenizer.unk_token, word] for y in x[0]])]
+                score = [x for x in ret if np.all([y in [word, self.tokenizer.unk_token] for y in x[0]])]
+                if score:
+                    score = score[0][-1]
+                # this will happen when the word is not in the vocabulary, in which case we don't look at the score
+                else:
+                    score = 0
+                new_ret = [(x[0], x[1], score - x[2]) for x in non_word if score - x[2] < threshold]
+                # print(text)
+                # print(new_ret)
+                # print()
+                if text == texts[0]:
+                    orig_ret = new_ret
+                in_all = in_all.intersection({x[0][0] for x in new_ret})
+        finally:
+            # Restore original client
+            if hasattr(self.llm_client, 'bind') and 'original_client' in locals():
+                self.llm_client = original_client
+
+        return [x for x in orig_ret if x[0][0] in in_all]

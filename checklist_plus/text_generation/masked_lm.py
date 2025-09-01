@@ -78,7 +78,7 @@ class TextGenerator:
             for x in scores:
                 scores[x] = scores[x] / len(texts)
         scores = sorted(scores.items(), key=lambda x:x[1], reverse=True)
-        # print([(list(x[0]), examples[x[0]], x[1]) for x in scores])
+        print([(list(x[0]), examples[x[0]], x[1]) for x in scores])
         return [(list(x[0]), examples[x[0]], x[1]) for x in scores]
 
     def unmask(self, text_with_mask, beam_size=10, candidates=None):
@@ -191,34 +191,34 @@ class TextGenerator:
     def more_general(self, texts, word, threshold=5, pos=None, **kwargs):
         options = all_possible_hypernyms(word, pos=pos)
         # print(options)
-        return self.filter_options(texts, word, options, threshold)
+        return self.filter_options(texts, word, options, threshold, **kwargs)
 
     def more_specific(self, texts, word, threshold=5, depth=3, pos=None, **kwargs):
         options = all_possible_hyponyms(word, depth=depth, pos=pos)
-        return self.filter_options(texts, word, options, threshold)
+        return self.filter_options(texts, word, options, threshold, **kwargs)
 
     def related_words(self, texts, words, threshold=5, depth=3, pos=None, **kwargs):
         if type(words) != list:
             words = [words]
         if len(words) == 1:
             options = all_possible_hypernyms(words[0], pos=pos)
-            ancestors = [x[0][0] for x in self.filter_options(texts, words[0], options, threshold)]
+            ancestors = [x[0][0] for x in self.filter_options(texts, words[0], options, threshold, **kwargs)]
             # print(ancestors)
             options = list({y for x in ancestors for y in all_possible_hyponyms(x, depth=depth)})
         else:
             options = all_possible_related(words, depth=depth)
-        return self.filter_options(texts, words[0], options, threshold)
+        return self.filter_options(texts, words[0], options, threshold, **kwargs)
 
     def antonyms(self, texts, word, threshold=5, pos=None, **kwargs):
         options = all_possible_antonyms(word, pos=pos)
-        return self.filter_options(texts, word, options, threshold)
+        return self.filter_options(texts, word, options, threshold, **kwargs)
 
     def synonyms(self, texts, word, threshold=5, pos=None, **kwargs):
         options = all_possible_synonyms(word, pos=pos)
         # print(options)
-        return self.filter_options(texts, word, options, threshold)
+        return self.filter_options(texts, word, options, threshold, **kwargs)
 
-    def filter_options(self, texts, word, options, threshold=5):
+    def filter_options(self, texts, word, options, threshold=5, **kwargs):
         if type(texts) != list:
             texts = [texts]
         options = options + [word]
