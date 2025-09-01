@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 from typing import Any, Dict, List, Optional, Union
@@ -8,10 +9,13 @@ from langchain.schema import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from checklist_plus.config import cfg
+from checklist_plus.text_generation.masked_lm import TextGenerator
 from checklist_plus.text_generation.models import ParaphraseResponse, UniqueCompletions
 
+logger = logging.getLogger(__name__)
 
-class LLMTextGenerator:
+
+class LLMTextGenerator(TextGenerator):
     """
     LLM-based TextGenerator that implements the same interface as TextGenerator
     but uses LLM for mask filling instead of masked language models.
@@ -87,7 +91,7 @@ class LLMTextGenerator:
 
         return DummyTokenizer()
 
-    def unmask_multiple(self, texts, n_completions=1, candidates=None, metric='avg', context=None, **kwargs):
+    def unmask_multiple(self, texts, n_completions=1, prompt_config=cfg.config.text_generation.llm.unmask_prompt, candidates=None, metric='avg', context=None, **kwargs):
         """
         Fill multiple mask tokens using LLM.
 
@@ -115,22 +119,30 @@ class LLMTextGenerator:
         all_results = []
         unique_completions = set()  # Track unique completions across all texts
         # print("texts:", texts)
-
+        if context is not None and candidates is not None:
+            raise ValueError("Cannot specify both context and candidates")
         prompt_parts = []
         input_variables = ["n_completions", "text", "mask_count"]
         input_data = {
             "n_completions": n_completions,
         }
+        prompt_parts.append(prompt_config.task_context)
+
+        if candidates is not None:
+            input_variables.append("candidates")
+            input_data["candidates"] = ", ".join(candidates)
+            prompt_parts.append(prompt_config.background_data.candidates)
+            context = candidates[-1]  # Use last candidate as context
+
         if context:
             input_variables.append("context")
             input_data["context"] = context
-        prompt_parts.append(cfg.config.text_generation.llm.unmask_prompt.task_context)
-        if context:
-            prompt_parts.append(cfg.config.text_generation.llm.unmask_prompt.background_data)
-        prompt_parts.extend([cfg.config.text_generation.llm.unmask_prompt.rules,
-                        cfg.config.text_generation.llm.unmask_prompt.task,
-                        cfg.config.text_generation.llm.unmask_prompt.thinking_step,
-                        cfg.config.text_generation.llm.unmask_prompt.output_format])
+            prompt_parts.append(prompt_config.background_data.context)
+
+        prompt_parts.extend([prompt_config.rules,
+                        prompt_config.task,
+                        prompt_config.thinking_step,
+                        prompt_config.output_format])
         prompt_text = "\n".join(prompt_parts)
         completion_template = PromptTemplate(
             input_variables=input_variables,
@@ -172,359 +184,51 @@ class LLMTextGenerator:
                             # Clean the completion
                             cleaned = completion.strip(' .,!?;:')
                             full_text = full_text.replace(self.tokenizer.mask_token, cleaned, 1)
-
+                        if full_text in unique_completions:
+                            continue
+                        unique_completions.add(full_text)
                         # Score decreases with position (first suggestion gets highest score)
                         score = 1.0 - (i * 0.01)  # Smaller decrement for more granular scoring
                         all_results.append((completion_set, full_text, score))
                     else:
-                        print(f"Warning: completion set {completion_set} has {len(completion_set)} items but expected {mask_count}")
+                        logger.warning(f"Completion set {completion_set} has {len(completion_set)} items but expected {mask_count}")
 
         except Exception as e:
-            print(f"LLM unmask failed for text '{text}': {e}")
+            logger.error(f"LLM unmask failed for text '{text}'", exc_info=True)
             # Fallback: return original text with empty completions
             all_results.append(([""] * mask_count, text, 0.0))
 
-        # print('all_results:', all_results)
-        # print(f'Total unique completions generated: {len(unique_completions)}')
+        print('all_results:', all_results)
+        print(f'Total unique completions generated: {len(unique_completions)}')
         return all_results
 
-    def unmask(self, text_with_mask, n_completions=10, candidates=None):
-        raise NotImplementedError("Use unmask_multiple for LLMTextGenerator")
-
-    def replace_word(self, text, word, threshold=5, beam_size=100, candidates=None):
+    def unmask(self, text_with_mask, n_completions=10, candidates=None, context=None, **kwargs):
         """
-        Replace a word in text using LLM.
+        Fill mask tokens in a single text using LLM.
 
         Parameters
         ----------
-        text : str
-            Original text
-        word : str
-            Word to replace
-        threshold : float
-            Threshold for replacement (not used in LLM version)
-        beam_size : int
+        text_with_mask : str
+            Text with mask tokens
+        n_completions : int
             Number of suggestions to generate
         candidates : List[str], optional
-            Candidate words to consider
-
-        Returns
-        -------
-        List[Tuple[List[str], str, float]]
-            List of (replacement_words, full_text, score) tuples
-        """
-        # Replace the word with a blank
-        masked_text = text.replace(word, "___")
-
-        # Create a prompt template for word replacement
-        replacement_template = PromptTemplate(
-            input_variables=["beam_size", "masked_text"],
-            template="""You are a word replacement expert. Replace the blank (___) with a different word that makes sense in the context.
-Provide {beam_size} different replacements, each on a new line. Only provide the replacement word.
-
-Text with blank: {masked_text}"""
-        )
-
-        # Format the prompt with variables
-        formatted_prompt = replacement_template.format(
-            beam_size=beam_size,
-            masked_text=masked_text
-        )
-
-        try:
-            response = self.llm_client.invoke(formatted_prompt)
-            replacements = [line.strip() for line in response.content.strip().split('\n') if line.strip()]
-
-            # Clean up replacements: remove numbering and extra formatting
-            cleaned_replacements = []
-            for replacement in replacements:
-                # Remove numbering patterns like "1.", "2.", "1)", "2)", etc.
-                cleaned = re.sub(r'^\d+[\.\)]\s*', '', replacement.strip())
-                # Remove any remaining numbers at the beginning
-                cleaned = re.sub(r'^\d+\s*', '', cleaned)
-                # Remove any trailing punctuation that might be artifacts
-                cleaned = cleaned.strip(' .')
-                if cleaned:  # Only add non-empty replacements
-                    cleaned_replacements.append(cleaned)
-
-            results = []
-            for i, replacement in enumerate(cleaned_replacements[:beam_size]):
-                if replacement.lower() != word.lower():  # Avoid replacing with the same word
-                    full_text = text.replace(word, replacement)
-                    score = 1.0 - (i * 0.1)
-                    results.append(([replacement], full_text, score))
-
-            return results
-
-        except Exception as e:
-            print(f"LLM replace_word failed for text '{text}', word '{word}': {e}")
-            return []
-
-    def antonyms(self, texts, word, threshold=5, pos=None, **kwargs):
-        """
-        Find antonyms using LLM.
-
-        Parameters
-        ----------
-        texts : List[str] or str
-            Context texts
-        word : str
-            Word to find antonyms for
-        threshold : float
-            Threshold for filtering (not used in LLM version)
-        pos : str, optional
-            Part of speech (not used in LLM version)
+            Candidate words to consider (not used in LLM version)
+        context : str, optional
+            Topic or context to guide word generation
         **kwargs
             Additional parameters
 
         Returns
         -------
         List[Tuple[List[str], str, float]]
-            List of (antonyms, context_text, score) tuples
+            List of (words, full_text, score) tuples
         """
-        if isinstance(texts, str):
-            texts = [texts]
-
-        # Create a prompt template for finding antonyms
-        antonyms_template = PromptTemplate(
-            input_variables=["word", "text"],
-            template="""You are a word relationship expert. Find antonyms (opposites) of the given word that fit well in the provided context.
-Provide antonyms that are natural and contextually appropriate.
-
-Find antonyms of '{word}' that fit well in this context:
-
-{text}"""
-        )
-
-        results = []
-        for text in texts:
-            # Format the prompt with variables
-            formatted_prompt = antonyms_template.format(
-                word=word,
-                text=text
-            )
-
-            try:
-                response = self.llm_client.invoke(formatted_prompt)
-                antonyms = [word.strip() for word in response.content.strip().split('\n') if word.strip()]
-
-                # Clean up antonyms: remove numbering and extra formatting
-                cleaned_antonyms = []
-                for antonym in antonyms:
-                    # Remove numbering patterns like "1.", "2.", "1)", "2)", etc.
-                    cleaned = re.sub(r'^\d+[\.\)]\s*', '', antonym.strip())
-                    # Remove any remaining numbers at the beginning
-                    cleaned = re.sub(r'^\d+\s*', '', cleaned)
-                    # Remove any trailing punctuation that might be artifacts
-                    cleaned = cleaned.strip(' .')
-                    if cleaned:  # Only add non-empty antonyms
-                        cleaned_antonyms.append(cleaned)
-
-                for antonym in cleaned_antonyms[:5]:  # Limit to 5 antonyms
-                    results.append(([antonym], text, 1.0))
-
-            except Exception as e:
-                print(f"LLM antonyms failed for word '{word}' in text '{text}': {e}")
-
-        return results
-
-    def synonyms(self, texts, word, threshold=5, pos=None, **kwargs):
-        """
-        Find synonyms using LLM.
-
-        Parameters
-        ----------
-        texts : List[str] or str
-            Context texts
-        word : str
-            Word to find synonyms for
-        threshold : float
-            Threshold for filtering (not used in LLM version)
-        pos : str, optional
-            Part of speech (not used in LLM version)
-        **kwargs
-            Additional parameters
-
-        Returns
-        -------
-        List[Tuple[List[str], str, float]]
-            List of (synonyms, context_text, score) tuples
-        """
-        if isinstance(texts, str):
-            texts = [texts]
-
-        # Create a prompt template for finding synonyms
-        synonyms_template = PromptTemplate(
-            input_variables=["word", "text"],
-            template="""You are a word relationship expert. Find synonyms of the given word that fit well in the provided context.
-Provide synonyms that are natural and contextually appropriate.
-
-Find synonyms of '{word}' that fit well in this context:
-
-{text}"""
-        )
-
-        results = []
-        for text in texts:
-            # Format the prompt with variables
-            formatted_prompt = synonyms_template.format(
-                word=word,
-                text=text
-            )
-
-            try:
-                response = self.llm_client.invoke(formatted_prompt)
-                synonyms = [word.strip() for word in response.content.strip().split('\n') if word.strip()]
-
-                # Clean up synonyms: remove numbering and extra formatting
-                cleaned_synonyms = []
-                for synonym in synonyms:
-                    # Remove numbering patterns like "1.", "2.", "1)", "2)", etc.
-                    cleaned = re.sub(r'^\d+[\.\)]\s*', '', synonym.strip())
-                    # Remove any remaining numbers at the beginning
-                    cleaned = re.sub(r'^\d+\s*', '', cleaned)
-                    # Remove any trailing punctuation that might be artifacts
-                    cleaned = cleaned.strip(' .')
-                    if cleaned:  # Only add non-empty synonyms
-                        cleaned_synonyms.append(cleaned)
-
-                for synonym in cleaned_synonyms[:5]:  # Limit to 5 synonyms
-                    results.append(([synonym], text, 1.0))
-
-            except Exception as e:
-                print(f"LLM synonyms failed for word '{word}' in text '{text}': {e}")
-
-        return results
-
-    def more_general(self, texts, word, threshold=5, pos=None, **kwargs):
-        """Find more general terms (hypernyms) using LLM."""
-        if isinstance(texts, str):
-            texts = [texts]
-
-        # Create a prompt template for finding more general terms
-        general_template = PromptTemplate(
-            input_variables=["word", "text"],
-            template="""You are a word relationship expert. Find more general terms (hypernyms) of the given word that fit well in the provided context.
-
-Find more general terms for '{word}' that fit well in this context:
-
-{text}"""
-        )
-
-        results = []
-        for text in texts:
-            # Format the prompt with variables
-            formatted_prompt = general_template.format(
-                word=word,
-                text=text
-            )
-
-            try:
-                response = self.llm_client.invoke(formatted_prompt)
-                hypernyms = [word.strip() for word in response.content.strip().split('\n') if word.strip()]
-
-                # Clean up hypernyms: remove numbering and extra formatting
-                cleaned_hypernyms = []
-                for hypernym in hypernyms:
-                    # Remove numbering patterns like "1.", "2.", "1)", "2)", etc.
-                    cleaned = re.sub(r'^\d+[\.\)]\s*', '', hypernym.strip())
-                    # Remove any remaining numbers at the beginning
-                    cleaned = re.sub(r'^\d+\s*', '', cleaned)
-                    # Remove any trailing punctuation that might be artifacts
-                    cleaned = cleaned.strip(' .')
-                    if cleaned:  # Only add non-empty hypernyms
-                        cleaned_hypernyms.append(cleaned)
-
-                for hypernym in cleaned_hypernyms[:5]:
-                    results.append(([hypernym], text, 1.0))
-
-            except Exception as e:
-                print(f"LLM more_general failed for word '{word}' in text '{text}': {e}")
-
-        return results
-
-    def more_specific(self, texts, word, threshold=5, depth=3, pos=None, **kwargs):
-        """Find more specific terms (hyponyms) using LLM."""
-        if isinstance(texts, str):
-            texts = [texts]
-
-        system_prompt = """You are a word relationship expert. Find more specific terms (hyponyms) of the given word that fit well in the provided context."""
-
-        results = []
-        for text in texts:
-            user_prompt = f"Find more specific terms for '{word}' that fit well in this context:\n\n{text}"
-
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt)
-            ]
-
-            try:
-                response = self.llm_client.invoke(messages)
-                hyponyms = [word.strip() for word in response.content.strip().split('\n') if word.strip()]
-
-                # Clean up hyponyms: remove numbering and extra formatting
-                cleaned_hyponyms = []
-                for hyponym in hyponyms:
-                    # Remove numbering patterns like "1.", "2.", "1)", "2)", etc.
-                    cleaned = re.sub(r'^\d+[\.\)]\s*', '', hyponym.strip())
-                    # Remove any remaining numbers at the beginning
-                    cleaned = re.sub(r'^\d+\s*', '', cleaned)
-                    # Remove any trailing punctuation that might be artifacts
-                    cleaned = cleaned.strip(' .')
-                    if cleaned:  # Only add non-empty hyponyms
-                        cleaned_hyponyms.append(cleaned)
-
-                for hyponym in cleaned_hyponyms[:5]:
-                    results.append(([hyponym], text, 1.0))
-
-            except Exception as e:
-                print(f"LLM more_specific failed for word '{word}' in text '{text}': {e}")
-
-        return results
-
-    def related_words(self, texts, words, threshold=5, depth=3, pos=None, **kwargs):
-        """Find related words using LLM."""
-        if isinstance(texts, str):
-            texts = [texts]
-
-        if not isinstance(words, list):
-            words = [words]
-
-        system_prompt = """You are a word relationship expert. Find words that are related to the given word(s) that fit well in the provided context."""
-
-        results = []
-        for text in texts:
-            word_list = ", ".join(words)
-            user_prompt = f"Find words related to '{word_list}' that fit well in this context:\n\n{text}"
-
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt)
-            ]
-
-            try:
-                response = self.llm_client.invoke(messages)
-                related = [word.strip() for word in response.content.strip().split('\n') if word.strip()]
-
-                # Clean up related words: remove numbering and extra formatting
-                cleaned_related = []
-                for word in related:
-                    # Remove numbering patterns like "1.", "2.", "1)", "2)", etc.
-                    cleaned = re.sub(r'^\d+[\.\)]\s*', '', word.strip())
-                    # Remove any remaining numbers at the beginning
-                    cleaned = re.sub(r'^\d+\s*', '', cleaned)
-                    # Remove any trailing punctuation that might be artifacts
-                    cleaned = cleaned.strip(' .')
-                    if cleaned:  # Only add non-empty words
-                        cleaned_related.append(cleaned)
-
-                for word in cleaned_related[:5]:
-                    results.append(([word], text, 1.0))
-
-            except Exception as e:
-                print(f"LLM related_words failed for words '{words}' in text '{text}': {e}")
-
+        print("text_with_mask:", text_with_mask)
+        # Use unmask_multiple with a single text and return the results
+        results = self.unmask_multiple([text_with_mask], n_completions=n_completions,
+                                     candidates=candidates, context=context, **kwargs)
+        print("Unmask results:", results[0])
         return results
 
     def paraphrase(self, texts, n_paraphrases=5, context=None, style=None,
@@ -603,12 +307,8 @@ Find more general terms for '{word}' that fit well in this context:
             formatted_prompt = paraphrase_template.format(**input_data)
             formatted_prompts.append(formatted_prompt)
 
-        # Create LLM client with specified temperature
-        temp_llm = ChatOpenAI(
-            openai_api_key=self.llm_client.openai_api_key,
-            model_name=self.model_name,
-            temperature=temperature
-        )
+        # Bind existing LLM client with specified temperature
+        temp_llm = self.llm_client.bind(temperature=temperature)
 
         # Use structured output with Pydantic model
         structured_llm = temp_llm.with_structured_output(ParaphraseResponse)
@@ -640,49 +340,7 @@ Find more general terms for '{word}' that fit well in this context:
                 all_paraphrases.extend(filtered_paraphrases[:n_paraphrases])
 
         except Exception as e:
-            print(f"LLM batch paraphrase failed: {e}")
-            raise e
+            logger.error("LLM batch paraphrase failed", exc_info=True)
+            raise
 
         return all_paraphrases
-
-    def filter_options(self, texts, word, options, threshold=5):
-        """Filter options based on context using LLM."""
-        if isinstance(texts, str):
-            texts = [texts]
-
-        system_prompt = """You are a text analysis expert. Given a list of options and a context, determine which options fit well in the context."""
-
-        results = []
-        for text in texts:
-            options_list = ", ".join(options)
-            user_prompt = f"Which of these options fit well in this context?\n\nContext: {text}\n\nOptions: {options_list}\n\nProvide only the options that fit well, one per line."
-
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt)
-            ]
-
-            try:
-                response = self.llm_client.invoke(messages)
-                filtered = [word.strip() for word in response.content.strip().split('\n') if word.strip()]
-
-                # Clean up filtered options: remove numbering and extra formatting
-                cleaned_filtered = []
-                for option in filtered:
-                    # Remove numbering patterns like "1.", "2.", "1)", "2)", etc.
-                    cleaned = re.sub(r'^\d+[\.\)]\s*', '', option.strip())
-                    # Remove any remaining numbers at the beginning
-                    cleaned = re.sub(r'^\d+\s*', '', cleaned)
-                    # Remove any trailing punctuation that might be artifacts
-                    cleaned = cleaned.strip(' .')
-                    if cleaned:  # Only add non-empty options
-                        cleaned_filtered.append(cleaned)
-
-                for option in cleaned_filtered:
-                    if option in options:
-                        results.append(([option], text, 1.0))
-
-            except Exception as e:
-                print(f"LLM filter_options failed for word '{word}' in text '{text}': {e}")
-
-        return results

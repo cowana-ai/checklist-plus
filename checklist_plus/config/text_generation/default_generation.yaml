@@ -1,7 +1,9 @@
 llm:
   unmask_prompt:
     task_context: "You are a text completion expert. Complete the given text by filling in ALL {mask_count} blank(s) (___)."
-    background_data: "Focus on generating completions related to: {context}"
+    background_data:
+      context: "Focus on generating completions related to: {context}"
+      candidates: "Consider the following candidate words: {candidates}. Pick from these if they fit well and sort them by relevance."
     rules: |
       Generate exactly {n_completions} unique, diverse sets of completions that fit the context well and relate to the specified topic. Each completion should be either:
       1) A single word (e.g., "performance", "strategy", "goal")
