@@ -584,3 +584,82 @@ class Perturb:
             ret.extend([sub_re.sub(n, doc.text) for n in to_sub])
             ret_m.extend([(x, n) for n in to_sub])
         return process_ret(ret, ret_m=ret_m, n=n, meta=meta)
+
+    @staticmethod
+    def add_negation_llm(text, llm_text_generator=None, **kwargs):
+        """LLM-powered negation addition
+
+        Parameters
+        ----------
+        text : str or spacy.token.Doc
+            Input text to negate
+        llm_text_generator : LLMTextGenerator, optional
+            Instance of LLMTextGenerator for LLM-based negation
+        **kwargs
+            Additional parameters
+
+        Returns
+        -------
+        str or None
+            Negated text, or None if negation not possible
+        """
+        if llm_text_generator is None:
+            # Fallback to rule-based approach
+            return Perturb.add_negation(text)
+
+        # Convert spacy doc to string if needed
+        if hasattr(text, 'text'):
+            text_str = text.text
+        else:
+            text_str = str(text)
+
+        try:
+            # Use LLM to generate negated version
+            negated_versions = llm_text_generator.negate_sentence(
+                text_str,
+                n_variations=1,
+                **kwargs
+            )
+            return negated_versions[0] if negated_versions else None
+        except Exception as e:
+            print(f"LLM negation failed: {e}")
+            # Fallback to rule-based
+            return Perturb.add_negation(text)
+
+    @staticmethod
+    def remove_negation_llm(text, llm_text_generator=None, **kwargs):
+        """LLM-powered negation removal
+
+        Parameters
+        ----------
+        text : str or spacy.token.Doc
+            Input text to remove negation from
+        llm_text_generator : LLMTextGenerator, optional
+            Instance of LLMTextGenerator for LLM-based processing
+        **kwargs
+            Additional parameters
+
+        Returns
+        -------
+        str or None
+            Text with negation removed, or None if not applicable
+        """
+        if llm_text_generator is None:
+            return Perturb.remove_negation(text)
+
+        if hasattr(text, 'text'):
+            text_str = text.text
+        else:
+            text_str = str(text)
+
+        try:
+            # Use LLM to remove negation
+            positive_versions = llm_text_generator.remove_negation_sentence(
+                text_str,
+                n_variations=1,
+                **kwargs
+            )
+            return positive_versions[0] if positive_versions else None
+        except Exception as e:
+            print(f"LLM negation removal failed: {e}")
+            return Perturb.remove_negation(text)
