@@ -123,7 +123,7 @@ python -m spacy download en_core_web_sm
 ### From PyPI (Recommended)
 
 ```bash
-pip install checklist-plus-plus
+pip install checklist-plus
 
 # For Jupyter visualizations
 jupyter nbextension install --py --sys-prefix checklist_plus.viewer
