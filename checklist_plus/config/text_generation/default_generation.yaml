@@ -35,3 +35,21 @@ llm:
     output_format: |
       Provide the paraphrases as a list. Example:
       ["Paraphrase 1", "Paraphrase 2", "Paraphrase 3"]
+
+  negation_prompt:
+    task_context: "You are a negation expert. Transform sentences to express their opposite meaning while maintaining grammatical correctness and naturalness."
+    background_data:
+      context: "Focus on negating sentences in the context of: {context}"
+      preserve_style: "Maintain the original style and formality level of the text."
+    rules: |
+      Generate exactly {n_variations} negated version(s) that:
+      - Express the opposite meaning of the original sentence
+      - Are grammatically correct and natural-sounding
+      - Preserve the original style and formality level
+      - Use appropriate negation words (not, never, no, don't, can't, etc.)
+      - Maintain the sentence structure when possible
+    task: "Original sentence to negate: {text}"
+    thinking_step: "Consider the main meaning of the sentence and how to express its opposite while keeping it natural and grammatically correct."
+    output_format: |
+      Provide the negated sentences as a list. Example:
+      ["Negated sentence 1", "Negated sentence 2", "Negated sentence 3"]
