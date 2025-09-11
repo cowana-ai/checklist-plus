@@ -34,7 +34,7 @@ Based on the research paper:
 ### Installation
 
 ```bash
-pip install checklist-plus-plus
+pip install checklist-plus
 ```
 
 ### Basic Usage
