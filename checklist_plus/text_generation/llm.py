@@ -11,7 +11,11 @@ from langchain_openai import ChatOpenAI
 
 from checklist_plus.config import cfg
 from checklist_plus.text_generation.masked_lm import TextGenerator
-from checklist_plus.text_generation.models import ParaphraseResponse, UniqueCompletions
+from checklist_plus.text_generation.models import (
+    NegationResponse,
+    ParaphraseResponse,
+    UniqueCompletions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +29,7 @@ class LLMTextGenerator(TextGenerator):
     def __init__(self,
                  llm_client: LLM | None = None,
                  openai_api_key: str | None = None,
-                 model_name: str = "gpt-3.5-turbo",
+                 model_name: str = "gpt-4o-mini",
                  **kwargs):
         """
         Initialize LLMTextGenerator.
@@ -37,7 +41,7 @@ class LLMTextGenerator(TextGenerator):
         openai_api_key : str, optional
             OpenAI API key. If None, will try to get from environment.
         model_name : str
-            Model name for OpenAI (default: "gpt-3.5-turbo")
+            Model name for OpenAI (default: "gpt-4o-mini")
         **kwargs
             Additional arguments
         """
@@ -389,3 +393,137 @@ class LLMTextGenerator(TextGenerator):
                 self.llm_client = original_client
 
         return [x for x in orig_ret if x[0][0] in in_all]
+
+    def negate_sentence_multiple(self, texts, n_variations=1, prompt_config=None, context=None, **kwargs):
+        """
+        Generate negated versions of multiple sentences using LLM with batch processing.
+
+        Parameters
+        ----------
+        texts : List[str]
+            List of texts to negate
+        n_variations : int
+            Number of negated variations to generate per text
+        prompt_config : object, optional
+            Configuration for negation prompts. If None, uses default from config.
+        context : str, optional
+            Context to guide negation (e.g., "formal", "casual", "academic")
+        **kwargs
+            Additional parameters
+
+        Returns
+        -------
+        List[List[str]]
+            List of lists, where each inner list contains negated versions of the corresponding input text
+        """
+        if prompt_config is None:
+            prompt_config = cfg.config.text_generation.llm.negation_prompt
+
+        prompt_parts = []
+        input_variables = ["n_variations", "text"]
+        input_data = {
+            "n_variations": n_variations,
+        }
+
+        prompt_parts.append(prompt_config.task_context)
+
+        if context:
+            input_variables.append("context")
+            input_data["context"] = context
+            prompt_parts.append(prompt_config.background_data.context)
+
+        prompt_parts.append(prompt_config.background_data.preserve_style)
+        prompt_parts.extend([
+            prompt_config.rules,
+            prompt_config.task,
+            prompt_config.thinking_step,
+            prompt_config.output_format
+        ])
+
+        prompt_text = "\n".join(prompt_parts)
+        negation_template = PromptTemplate(
+            input_variables=input_variables,
+            template=prompt_text
+        )
+
+        # Create all formatted prompts for batch processing
+        formatted_prompts = []
+        for text in texts:
+            input_data["text"] = text
+            formatted_prompt = negation_template.format(**input_data)
+            formatted_prompts.append(formatted_prompt)
+
+        # Use structured output with Pydantic model
+        structured_llm = self.llm_client.with_structured_output(NegationResponse)
+
+        # Batch process all prompts
+        all_negations = []
+        try:
+            # Use batch method for efficient processing
+            responses = structured_llm.batch(formatted_prompts)
+            logger.warning(f"response: {responses}")
+            for i, response in enumerate(responses):
+                original_text = texts[i]
+
+                # Extract negated sentences from Pydantic model
+                negated_sentences = response.negated_sentences if hasattr(response, 'negated_sentences') else []
+
+                # Filter out any sentences that are identical to the original
+                filtered_negations = [
+                    neg for neg in negated_sentences
+                    if neg.strip() and neg.strip().lower() != original_text.strip().lower()
+                ]
+
+                # Ensure we have the requested number of negations
+                if len(filtered_negations) < n_variations:
+                    logger.warning(f"Not enough unique negations for text: {original_text}")
+                # If we still don't have any, return empty list for this text
+                if not filtered_negations:
+                    filtered_negations = []
+
+                all_negations.append(filtered_negations[:n_variations])
+
+        except Exception as e:
+            logger.error(f"LLM batch negation failed {e}", exc_info=True)
+            # Return empty lists for all texts on failure
+            all_negations = [[] for _ in texts]
+
+        return all_negations
+
+    def negate_sentence(self, text, n_variations=1, context=None, **kwargs):
+        """
+        Generate negated versions of a sentence using LLM.
+
+        Parameters
+        ----------
+        text : str or List[str]
+            Input text(s) to negate. If string, will process as single text.
+            If list, will process all texts in batch.
+        n_variations : int
+            Number of negated variations to generate per text
+        context : str, optional
+            Context to guide negation (e.g., "formal", "casual", "academic")
+        **kwargs
+            Additional parameters
+
+        Returns
+        -------
+        List[str] or List[List[str]]
+            If input was string: List of negated sentences
+            If input was list: List of lists, where each inner list contains negated versions
+        """
+        # Handle both single text and batch processing
+        if isinstance(text, str):
+            texts = [text]
+            return_single = True
+        else:
+            texts = text
+            return_single = False
+
+        # Use the batch method
+        results = self.negate_sentence_multiple(texts, n_variations=n_variations, context=context, **kwargs)
+
+        if return_single:
+            return results[0] if results else []
+        else:
+            return results

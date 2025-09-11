@@ -1,17 +1,46 @@
 import collections
+import copy
 import json
 import os
 import re
 
+import munch
 import numpy as np
 import pattern
 from pattern.en import tenses
 
-from checklist_plus.editor.base import MunchWithAdd, recursive_apply
+
+class MunchWithAdd(munch.Munch):
+    def __add__(self, other):
+        temp = copy.deepcopy(self)
+        for k in self:
+            try:
+                temp[k] = temp[k] + other[k]
+            except KeyError:
+                raise Exception('Both Munches must have the same keys')
+        return temp
+
+    def __iadd__(self, other):
+        for k in self:
+            self[k] = self[k] + other[k]
+        return self
+
+    def __hash__(self):
+        return hash(self.toJSON())
+
+
+def recursive_apply(data, fn):
+    """Apply function recursively to data structure."""
+    if isinstance(data, (list, tuple)):
+        return type(data)(recursive_apply(item, fn) for item in data)
+    elif isinstance(data, dict):
+        return {key: recursive_apply(value, fn) for key, value in data.items()}
+    else:
+        return fn(data)
 
 
 def load_data():
-    cur_folder = os.path.dirname(__file__)
+    cur_folder = os.path.dirname(os.path.dirname(__file__))  # Go up one level from perturbations to checklist_plus
     basic = json.load(open(os.path.join(cur_folder, 'data', 'lexicons', 'basic.json')))
     names = json.load(open(os.path.join(cur_folder, 'data', 'names.json')))
     name_set = { x:set(names[x]) for x in names }
