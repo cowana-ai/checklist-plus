@@ -6,9 +6,10 @@ This project extends the original [CheckList](https://github.com/marcotcr/checkl
 
 ## 🆕 What's New in CheckList Plus
 
-- **LLM-Powered Perturbations**: Generate text variations using OpenAI GPT models
-- **Natural Language Task Definition**: Create perturbations with simple descriptions
-- **Enhanced Text Generation**: Advanced paraphrasing, negation, and entity replacement
+- **LLM-Powered Negation**: Generate text negations using OpenAI GPT models
+- **Enhanced Text Generation**: Advanced paraphrasing, context-aware suggestions, and semantic word relations
+- **Smart Template Filling**: LLM-enhanced template completion with contextual understanding
+- **Intelligent Word Relations**: Context-aware synonyms, antonyms, hypernyms, and hyponyms
 - **Simplified API**: More intuitive interfaces for common testing scenarios
 - **Backward Compatibility**: Works with all original CheckList functionality
 
@@ -41,27 +42,32 @@ pip install checklist-plus
 
 ```python
 import checklist_plus
-from checklist_plus.perturbations import LLMPerturb
+from checklist_plus.perturb import LLMPerturb
+from checklist_plus.editor import Editor
 
-# Initialize with OpenAI API key
+# Initialize LLM-enhanced perturbations
 perturb = LLMPerturb(openai_api_key="your-api-key")
-
-# Create perturbations with natural language
 data = ["I love this movie", "The food was great"]
 
 # LLM-powered negation
 negated = perturb.add_negation_llm(data, n_variations=2)
 # → [["I hate this movie", "I don't love this movie"], ...]
 
-# Natural language perturbations
-change_sentiment = perturb.task("make the text more negative")
-results = change_sentiment(data)
+# Initialize LLM-enhanced text generation
+editor = Editor(use_llm=True, openai_api_key="your-api-key")
+
+# Smart paraphrasing
+paraphrases = editor.paraphrase_llm(
+    "The weather is nice today", n_paraphrases=2, style="formal"
+)
+# → ["Today's weather conditions are quite pleasant", "The meteorological conditions are favorable today"]
 ```
 
 ### Enhanced Features
 
 - **Smart Perturbations**: `LLMPerturb` for intelligent text transformations
-- **Natural Language Tasks**: Define perturbations with simple descriptions
+- **LLM-powered Text Generation**: Context-aware template filling and paraphrasing
+- **Intelligent Word Relations**: Smart synonyms, antonyms, and semantic suggestions
 - **Batch Processing**: Efficient handling of multiple texts
 - **Fallback Support**: Automatic fallback to rule-based methods
 
@@ -147,18 +153,48 @@ python -m spacy download en_core_web_sm
 ### LLM-Enhanced Perturbations
 
 ```python
-from checklist_plus.perturbations import LLMPerturb
+from checklist_plus.perturb import LLMPerturb
 
 perturb = LLMPerturb(openai_api_key="your-key")
-
-# Natural language task definition
-change_colors = perturb.task("replace colors with different colors")
-results = change_colors(["I have a red car", "The blue sky is beautiful"])
 
 # Advanced negation with context
 negated = perturb.add_negation_llm(
     ["I love programming", "This is excellent"], n_variations=2, context="casual"
 )
+```
+
+### Enhanced Text Generation with LLM
+
+```python
+from checklist_plus.editor import Editor
+
+# Initialize editor with LLM capabilities
+llm_editor = Editor(
+    use_llm=True, model_name="gpt-4o-mini", openai_api_key="your-api-key"
+)
+
+# Smart template filling with context
+templates = llm_editor.template(
+    "The {mask} is very {adj}.",
+    adj=["beautiful", "interesting", "amazing"],
+    context="travel destinations",
+    n_completions=3,
+)
+
+# LLM-powered paraphrasing
+paraphrases = llm_editor.paraphrase_llm(
+    "The weather is beautiful today",
+    n_paraphrases=3,
+    style="formal",
+    length_preference="longer",
+)
+
+# Context-aware word suggestions
+suggestions = llm_editor.suggest("This is a {mask} movie.", context="science fiction")
+
+# Smart synonyms and antonyms
+synonyms = llm_editor.synonyms("The food is hot.", "hot")
+antonyms = llm_editor.antonyms("The weather is cold.", "cold")
 ```
 
 ### Template Generation (Original Feature)
@@ -187,8 +223,9 @@ parsed_data = list(nlp.pipe(data))
 # Rule-based perturbations (original)
 ret = Perturb.perturb(parsed_data, Perturb.change_names, n=2)
 
-# LLM-enhanced with fallback
-ret_llm = Perturb.perturb(data, perturb.change_professions_llm, keep_original=True)
+# LLM-enhanced negation
+ret_llm = perturb.add_negation_llm(["The service was good", "I liked the food"])
+print(ret_llm)
 ```
 
 ### Test Creation and Execution
