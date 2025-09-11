@@ -76,7 +76,7 @@ paraphrases = editor.paraphrase_llm(
 From pypi:
 
 ```bash
-pip install checklist-plus-plus
+pip install checklist-plus
 jupyter nbextension install --py --sys-prefix checklist_plus.viewer
 jupyter nbextension enable --py --sys-prefix checklist_plus.viewer
 ```
@@ -87,7 +87,7 @@ From source:
 
 ```bash
 git clone git@github.com:cowana-ai/checklist-plus.git
-cd checklist-plus-plus
+cd checklist-plus
 pip install -e .
 ```
 
