@@ -46,8 +46,9 @@ def get_version():
             if version_match:
                 return version_match.group(1)
     except FileNotFoundError:
-        pass
-    return "1.0.0"  # fallback version
+        raise RuntimeError("pyproject.toml not found")
+    except Exception as e:
+        raise RuntimeError(f"Error reading pyproject.toml: {e}")
 
 setup(
     name=pkg_name,

@@ -1,7 +1,7 @@
 # pyproject.toml
 [project]
 name = "checklist_plus"
-version = "1.0.0"
+version = "0.1.0"
 description = "LLM-Enhanced CheckList: AI-Powered Behavioral Testing of NLP Models"
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.9,<=3.12"
