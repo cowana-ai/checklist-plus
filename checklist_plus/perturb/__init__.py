@@ -6,17 +6,9 @@ including both rule-based and LLM-enhanced approaches.
 """
 
 from checklist_plus.perturb.base import Perturb
-from checklist_plus.perturb.llm import (
-    LLMPerturb,
-    SmartPerturb,
-    create_llm_perturber,
-    create_smart_perturber,
-)
+from checklist_plus.perturb.llm import LLMPerturb
 
 __all__ = [
     'Perturb',
     'LLMPerturb',
-    'SmartPerturb',
-    'create_llm_perturber',
-    'create_smart_perturber'
 ]
