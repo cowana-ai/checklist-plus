@@ -101,7 +101,7 @@ class LLMPerturb(Perturb):
 
         return None
 
-    def add_negation_llm(self, texts: list[str], **kwargs) -> str | None:
+    def add_negation_llm(self, texts: list[str], **kwargs) -> list[list[str]] | None:
         """
         Add negation using LLM with fallback to rule-based method.
 
@@ -114,8 +114,8 @@ class LLMPerturb(Perturb):
 
         Returns
         -------
-        str or None
-            Negated text, or None if negation not possible
+        list[list[str]] or None
+            Per-input list of negated variants, or None/empty lists on failure
         """
         return self._llm_with_fallback(
             texts,
