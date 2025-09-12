@@ -461,7 +461,7 @@ class LLMTextGenerator(TextGenerator):
         try:
             # Use batch method for efficient processing
             responses = structured_llm.batch(formatted_prompts)
-            logger.warning(f"response: {responses}")
+            # logger.warning(f"response: {responses}")
             for i, response in enumerate(responses):
                 original_text = texts[i]
 
