@@ -1,10 +1,20 @@
-include LICENSE CHANGES README.md requirements.txt
+include LICENSE README.md requirements.txt
+include MANIFEST.in
+include pyproject.toml
 
-recursive-include * data
+# Include all Python source files
+recursive-include checklist_plus *.py
+recursive-include checklist_plus *.yaml
+recursive-include checklist_plus *.json
+recursive-include checklist_plus/data *
+
+# Exclude compiled Python files and caches
 recursive-exclude * __pycache__
 recursive-exclude * *.pyc
 recursive-exclude * *.pyo
 recursive-exclude * *.orig
+
+# Exclude development and build artifacts
 recursive-exclude * node_modules
 recursive-exclude * _release_data
-recursive-exclude * visual_interface
+exclude visual_interface/
