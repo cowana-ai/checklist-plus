@@ -30,6 +30,14 @@ Based on the research paper:
 }
 ```
 
+### Advanced Use Cases
+
+CheckList Plus extends behavioral testing beyond traditional NLP models to modern architectures:
+
+- **[Testing Embeddings Behavior](notebooks/embeddings/Testing_Embeddings_Behaviour.ipynb)** - Evaluate embedding models by testing their ability to distinguish between paraphrases (should be similar) and negations (should be different). This notebook demonstrates how LLM-generated perturbations can reveal behavioral inconsistencies in embedding models.
+
+*Inspired by research on embedding evaluation methodologies: ["Enhancing Negation Awareness in Universal Text Embeddings: A Data-efficient and Computational-efficient Approach"](https://arxiv.org/html/2504.00584v1)*
+
 ## 🚀 Quick Start
 
 ### Installation
