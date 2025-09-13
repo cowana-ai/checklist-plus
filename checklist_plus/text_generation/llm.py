@@ -14,6 +14,7 @@ from checklist_plus.text_generation.masked_lm import TextGenerator
 from checklist_plus.text_generation.models import (
     NegationResponse,
     ParaphraseResponse,
+    TextExample,
     UniqueCompletions,
 )
 
@@ -96,7 +97,109 @@ class LLMTextGenerator(TextGenerator):
 
         return DummyTokenizer()
 
-    def unmask_multiple(self, texts, n_completions=1, prompt_config=cfg.config.text_generation.llm.unmask_prompt, candidates=None, metric='avg', context=None, **kwargs):
+    def _process_examples(self, examples):
+        """Process various example formats into formatted string for prompt."""
+        if not examples:
+            return ""
+
+        formatted_examples = []
+
+        if isinstance(examples, list):
+            for example in examples:
+                if isinstance(example, TextExample):
+                    formatted_examples.append(f"{example.input} -> {example.output}")
+                elif isinstance(example, tuple) and len(example) == 2:
+                    formatted_examples.append(f"{example[0]} -> {example[1]}")
+                elif isinstance(example, dict):
+                    inp = example.get('input') or example.get('original', '')
+                    out = example.get('output') or example.get('paraphrase', '')
+                    if inp and out:
+                        formatted_examples.append(f"{inp} -> {out}")
+
+        if formatted_examples:
+            return "Here are some examples of how to respond:\n\n" + "\n\n".join(formatted_examples) + "\n\n"
+        return ""
+
+    def _build_prompt_parts(self, prompt_config, examples=None, candidates=None, context=None,
+                           style=None, **kwargs):
+        """Build prompt parts in a standardized way."""
+        prompt_parts = []
+        input_variables = []
+        input_data = {}
+
+        # Always start with task context
+        prompt_parts.append(prompt_config.task_context)
+
+        # Add candidates if provided
+        if candidates is not None:
+            input_variables.append("candidates")
+            input_data["candidates"] = ", ".join(candidates)
+            if hasattr(prompt_config, 'background_data') and hasattr(prompt_config.background_data, 'candidates'):
+                prompt_parts.append(prompt_config.background_data.candidates)
+
+        # Add context if provided
+        if context:
+            input_variables.append("context")
+            input_data["context"] = context
+            if hasattr(prompt_config, 'background_data') and hasattr(prompt_config.background_data, 'context'):
+                prompt_parts.append(prompt_config.background_data.context)
+
+        # Add style if provided (for paraphrase)
+        if style:
+            input_variables.append("style")
+            input_data["style"] = style
+            if hasattr(prompt_config, 'tone_context'):
+                prompt_parts.append(prompt_config.tone_context)
+
+        # Add background data sections that should always be included
+        if hasattr(prompt_config, 'background_data'):
+            # For negation, add preserve_style
+            if hasattr(prompt_config.background_data, 'preserve_style'):
+                prompt_parts.append(prompt_config.background_data.preserve_style)
+            # For paraphrase with context, add background_data
+            elif context and not hasattr(prompt_config.background_data, 'context'):
+                prompt_parts.append(prompt_config.background_data)
+
+        # Add rules
+        if hasattr(prompt_config, 'rules'):
+            prompt_parts.append(prompt_config.rules)
+
+        # Add examples if provided
+        examples_text = self._process_examples(examples)
+        if examples_text:
+            prompt_parts.append(examples_text)
+
+        # Add core components
+        if hasattr(prompt_config, 'task'):
+            prompt_parts.append(prompt_config.task)
+        if hasattr(prompt_config, 'thinking_step'):
+            prompt_parts.append(prompt_config.thinking_step)
+        if hasattr(prompt_config, 'output_format'):
+            prompt_parts.append(prompt_config.output_format)
+
+        return prompt_parts, input_variables, input_data
+
+    def _build_prompt_text(self, prompt_config, examples=None, candidates=None, context=None,
+                          style=None, **additional_vars):
+        """Build complete prompt text and return template components."""
+        prompt_parts, input_variables, input_data = self._build_prompt_parts(
+            prompt_config, examples=examples, candidates=candidates,
+            context=context, style=style, **additional_vars
+        )
+
+        # Add any additional variables
+        for key, value in additional_vars.items():
+            if key not in input_data:
+                input_variables.append(key)
+                input_data[key] = value
+
+        prompt_text = "\n".join(prompt_parts)
+
+        return prompt_text, input_variables, input_data
+
+    def unmask_multiple(self, texts, n_completions=1, prompt_config=cfg.config.text_generation.llm.unmask_prompt,
+                        candidates: list[str]=None, metric='avg', context: str=None,
+                        examples: list[TextExample | tuple[str, str] | dict[str, str]] = None, **kwargs):
         """
         Fill multiple mask tokens using LLM.
 
@@ -123,30 +226,18 @@ class LLMTextGenerator(TextGenerator):
         """
         all_results = []
         unique_completions = set()  # Track unique completions across all texts
-        # print("texts:", texts)
-        prompt_parts = []
-        input_variables = ["n_completions", "text", "mask_count"]
-        input_data = {
-            "n_completions": n_completions,
-        }
-        prompt_parts.append(prompt_config.task_context)
-        # print("candidates:", candidates)
-        if candidates is not None:
-            input_variables.append("candidates")
-            input_data["candidates"] = ", ".join(candidates)
-            prompt_parts.append(prompt_config.background_data.candidates)
 
-        if context:
-            input_variables.append("context")
-            input_data["context"] = context
-            prompt_parts.append(prompt_config.background_data.context)
+        # Build prompt using helper function
+        prompt_text, input_variables, input_data = self._build_prompt_text(
+            prompt_config,
+            examples=examples,
+            candidates=candidates,
+            context=context,
+            n_completions=n_completions,
+            text="",  # Will be filled per text
+            mask_count=0  # Will be filled per text
+        )
 
-        prompt_parts.extend([prompt_config.rules,
-                        prompt_config.task,
-                        prompt_config.thinking_step,
-                        prompt_config.output_format])
-        prompt_text = "\n".join(prompt_parts)
-        # print("prompt_text:", context)
         completion_template = PromptTemplate(
             input_variables=input_variables,
             template=prompt_text
@@ -205,7 +296,7 @@ class LLMTextGenerator(TextGenerator):
         # print(f'Total unique completions generated: {len(unique_completions)}')
         return all_results
 
-    def unmask(self, text_with_mask, n_completions=10, candidates=None, context=None, **kwargs):
+    def unmask(self, text_with_mask, n_completions=10, candidates: list[str]=None, context: str=None, examples: list[TextExample | tuple[str, str] | dict[str, str]] = None, **kwargs):
         """
         Fill mask tokens in a single text using LLM.
 
@@ -230,11 +321,11 @@ class LLMTextGenerator(TextGenerator):
         # print("text_with_mask:", text_with_mask)
         # Use unmask_multiple with a single text and return the results
         results = self.unmask_multiple([text_with_mask], n_completions=n_completions,
-                                     candidates=candidates, context=context, **kwargs)
+                                     candidates=candidates, context=context, examples=examples, **kwargs)
         # print("Unmask results:", results[0])
         return results
 
-    def paraphrase(self, texts, n_paraphrases=5, context=None, style=None,
+    def paraphrase(self, texts, n_paraphrases=5, examples: list[TextExample | tuple[str, str] | dict[str, str]] = None, context=None, style=None,
                    length_preference=None, preserve_meaning=True,
                    temperature=0.7, **kwargs):
         """
@@ -246,6 +337,11 @@ class LLMTextGenerator(TextGenerator):
             Text(s) to paraphrase
         n_paraphrases : int
             Number of paraphrases to generate per text
+        examples : List[TextExample], List[Tuple], List[Dict], str, optional
+            Examples to guide paraphrasing style. Can be:
+            - List of TextExample objects
+            - List of (input, output) tuples
+            - List of dictionaries with input/output keys
         context : str, optional
             Context or domain to guide paraphrasing (e.g., "formal", "casual", "academic", "business")
         style : str, optional
@@ -277,27 +373,17 @@ class LLMTextGenerator(TextGenerator):
             elif length_preference.lower() == "similar":
                 length_instruction = "Keep the paraphrases similar in length to the original"
 
-        prompt_parts = []
-        input_variables = ["n_paraphrases", "text", "length_instruction"]
-        input_data = {
-            "n_paraphrases": n_paraphrases,
-            "length_instruction": length_instruction
-        }
-        prompt_parts.extend([cfg.config.text_generation.llm.paraphrase_prompt.task_context])
-        if style:
-            prompt_parts.append(cfg.config.text_generation.llm.paraphrase_prompt.tone_context)
-            input_variables.append("style")
-            input_data["style"] = style
-        if context:
-            prompt_parts.append(cfg.config.text_generation.llm.paraphrase_prompt.background_data)
-            input_variables.append("context")
-            input_data["context"] = context
-        prompt_parts.extend([cfg.config.text_generation.llm.paraphrase_prompt.rules,
-                                cfg.config.text_generation.llm.paraphrase_prompt.task,
-                                cfg.config.text_generation.llm.paraphrase_prompt.thinking_step,
-                                cfg.config.text_generation.llm.paraphrase_prompt.output_format])
+        # Build prompt using helper function
+        prompt_text, input_variables, input_data = self._build_prompt_text(
+            cfg.config.text_generation.llm.paraphrase_prompt,
+            examples=examples,
+            context=context,
+            style=style,
+            n_paraphrases=n_paraphrases,
+            text="",  # Will be filled per text
+            length_instruction=length_instruction
+        )
 
-        prompt_text = "\n".join(prompt_parts)
         paraphrase_template = PromptTemplate(
             input_variables=input_variables,
             template=prompt_text
@@ -394,7 +480,8 @@ class LLMTextGenerator(TextGenerator):
 
         return [x for x in orig_ret if x[0][0] in in_all]
 
-    def negate_sentence_multiple(self, texts, n_variations=1, prompt_config=None, context=None, **kwargs):
+    def negate_sentence_multiple(self, texts, n_variations=1, prompt_config=None, context: str=None,
+                                 examples: list[TextExample | tuple[str, str] | dict[str, str]] = None, **kwargs):
         """
         Generate negated versions of multiple sentences using LLM with batch processing.
 
@@ -419,28 +506,15 @@ class LLMTextGenerator(TextGenerator):
         if prompt_config is None:
             prompt_config = cfg.config.text_generation.llm.negation_prompt
 
-        prompt_parts = []
-        input_variables = ["n_variations", "text"]
-        input_data = {
-            "n_variations": n_variations,
-        }
+        # Build prompt using helper function
+        prompt_text, input_variables, input_data = self._build_prompt_text(
+            prompt_config,
+            examples=examples,
+            context=context,
+            n_variations=n_variations,
+            text=""  # Will be filled per text
+        )
 
-        prompt_parts.append(prompt_config.task_context)
-
-        if context:
-            input_variables.append("context")
-            input_data["context"] = context
-            prompt_parts.append(prompt_config.background_data.context)
-
-        prompt_parts.append(prompt_config.background_data.preserve_style)
-        prompt_parts.extend([
-            prompt_config.rules,
-            prompt_config.task,
-            prompt_config.thinking_step,
-            prompt_config.output_format
-        ])
-
-        prompt_text = "\n".join(prompt_parts)
         negation_template = PromptTemplate(
             input_variables=input_variables,
             template=prompt_text

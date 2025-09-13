@@ -1,4 +1,19 @@
-from pydantic import BaseModel, Field
+from typing import Optional
+
+from pydantic import BaseModel, Field, validator
+
+
+class TextExample(BaseModel):
+    """Single text generation example with input and output."""
+    input: str = Field(..., description="Input text")
+    output: str = Field(..., description="Expected output text")
+    description: str | None = Field(None, description="Optional description of this example")
+
+    @validator('input', 'output')
+    def validate_non_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Input and output must be non-empty strings")
+        return v.strip()
 
 
 class UniqueCompletions(BaseModel):
@@ -23,4 +38,4 @@ class NegationResponse(BaseModel):
 
 
 
-__all__ = ['UniqueCompletions', 'ParaphraseResponse', 'NegationResponse']
+__all__ = ['TextExample', 'UniqueCompletions', 'ParaphraseResponse', 'NegationResponse']
