@@ -8,18 +8,9 @@ This project extends the original [CheckList](https://github.com/marcotcr/checkl
 
 ### 🤖 LLM-Powered Text Generation & Perturbations
 
-- **LLM Text Generator**: Complete `LLMTextGenerator` class with support for OpenAI models and structured Pydantic outputs
-- **Smart Paraphrasing**: Context-aware paraphrasing with style control (`formal`, `casual`, `academic`) and length preferences
-- **Intelligent Negation**: LLM-powered sentence negation that preserves grammatical correctness and meaning
-- **Entity Detection & Masking**: Automatic entity detection with configurable entity types and intelligent masking capabilities
-- **Template Completion**: LLM-enhanced mask filling with contextual understanding and candidate suggestions
-
-### 🎯 Enhanced Perturbations with Precision Control
-
-- **Entity-Type Specific Number Changes**: Target specific numerical entities using spaCy NER (`MONEY`, `DATE`, `QUANTITY`, `CARDINAL`, `ORDINAL`, `PERCENT`)
-- **Configurable Abbreviation Handling**: Optional control over changing numbers like '2' and '4' that might be abbreviations
-- **Fallback Mechanisms**: Automatic fallback from LLM to rule-based methods for reliability
-- **Batch Processing**: Efficient processing of multiple texts with structured outputs
+- **LLM Text Generator**: Generate context-aware text completions, paraphrases, and negations using OpenAI models.
+- **Entity Detection & Masking**: Automatically detect and mask entities like colors, brands, and dates with spaCy and LLM integration.
+- **Precision Perturbations**: Target specific numerical entities (e.g., `MONEY`, `DATE`, `QUANTITY`) for controlled text transformations.
 
 ### 🛠 Developer Experience Improvements
 
@@ -68,15 +59,13 @@ CheckList Plus extends behavioral testing beyond traditional NLP models to moder
 pip install checklist-plus
 ```
 
-### LLM-Enhanced Features
+### Key Features
+
+#### 1. **LLM-Powered Text Generation**
 
 ```python
-import checklist_plus
 from checklist_plus.text_generation.llm import LLMTextGenerator
-from checklist_plus.perturb import LLMPerturb
-from checklist_plus.editor import Editor
 
-# Initialize LLM text generator
 tg = LLMTextGenerator(openai_api_key="your-api-key", model_name="gpt-4o-mini")
 
 # Smart paraphrasing with style control
@@ -92,8 +81,12 @@ paraphrases = tg.paraphrase(
 # Intelligent negation
 negated = tg.negate_sentence("I love this movie", n_variations=2)
 # → ["I hate this movie", "I don't love this movie"]
+```
 
-# Entity detection and masking
+#### 2. **Entity Detection & Masking**
+
+```python
+# Detect and mask entities
 result = tg.detect_and_mask_entities(
     "I bought an iPhone for $999 yesterday", entity_type="brand names"
 )
@@ -103,16 +96,9 @@ result = tg.detect_and_mask_entities(
 #     "contains_entities": True,
 #     "entities": ["iPhone"]
 # }
-
-# Template completion with context
-completions = tg.unmask(
-    "The best [MASK] for data science is [MASK]",
-    context="programming tools",
-    n_completions=3,
-)
 ```
 
-### Enhanced Perturbations
+#### 3. **Precision Perturbations**
 
 ```python
 from checklist_plus.perturb import Perturb
@@ -131,12 +117,6 @@ ret = Perturb.perturb(
     n=3,
 )
 # → Changes "14" to "16", "$45" to "$54", but preserves "10:30"
-
-# LLM-powered perturbations with fallback
-llm_perturb = LLMPerturb(openai_api_key="your-api-key", fallback_to_rules=True)
-negated = llm_perturb.add_negation_llm(
-    ["The service was excellent", "I enjoyed the meal"], n_variations=2
-)
 ```
 
 ### Editor with LLM Integration
@@ -174,14 +154,6 @@ entities = editor.tg.detect_entities("Apple released the new MacBook", "brand na
 **🔍 Entity Detection**: LLM-powered entity detection with configurable entity types and automatic masking.
 
 **⚙️ Temperature Control**: Deterministic outputs (temperature=0) for entity detection, creative outputs for paraphrasing.
-
-### Enhanced Features
-
-- **Smart Perturbations**: `LLMPerturb` for intelligent text transformations with fallback support
-- **Structured Text Generation**: `LLMTextGenerator` with Pydantic models for type-safe outputs
-- **Entity-Aware Processing**: Target specific numerical entities using spaCy's named entity recognition
-- **Batch Processing**: Efficient handling of multiple texts with structured responses
-- **Configuration-Driven**: YAML-based prompt templates with variable substitution
 
 ## Installation
 
