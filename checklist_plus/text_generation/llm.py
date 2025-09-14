@@ -109,7 +109,7 @@ class LLMTextGenerator(TextGenerator):
         return [
             # Example 1: Brand names detection
             TextExample(
-                input="I love my iPhone and Tesla car",
+                input="text: I love my iPhone and Tesla car, entity_type=BRAND",
                 output=EntityDetectionResponse(
                     contains_entities=True,
                     entities=["iPhone", "Tesla"]
@@ -119,7 +119,7 @@ class LLMTextGenerator(TextGenerator):
 
             # Example 2: Person names detection
             TextExample(
-                input="John called Mary yesterday to discuss the project",
+                input="text: John called Mary yesterday to discuss the project, entity_type=PERSON",
                 output=EntityDetectionResponse(
                     contains_entities=True,
                     entities=["John", "Mary"]
@@ -129,7 +129,7 @@ class LLMTextGenerator(TextGenerator):
 
             # Example 3: No entities found
             TextExample(
-                input="The weather is nice today and I feel great",
+                input="text: The weather is nice today and I feel great, entity_type=PERSON",
                 output=EntityDetectionResponse(
                     contains_entities=False,
                     entities=[]
@@ -167,7 +167,8 @@ class LLMTextGenerator(TextGenerator):
                         formatted_examples.append(f"{example.input} -> Negations: [{negations_str}]")
                     elif isinstance(example.output, EntityDetectionResponse):
                         entities_str = ", ".join(example.output.entities) if example.output.entities else "none"
-                        formatted_examples.append(f"entity_type={example.description} {example.input} -> Entities: {entities_str}")
+                        contains_entities = "Yes" if example.output.contains_entities else "No"
+                        formatted_examples.append(f"{example.input} -> Contains Entities: {contains_entities}, Entities: {entities_str}")
                     elif isinstance(example.output, UniqueCompletions):
                         completions_str = str(example.output.completions)
                         formatted_examples.append(f"{example.input} -> Completions: {completions_str}")
@@ -390,7 +391,9 @@ class LLMTextGenerator(TextGenerator):
         # print("Unmask results:", results[0])
         return results
 
-    def paraphrase(self, texts, n_paraphrases=5, examples: list[TextExample | tuple[str, str] | dict[str, str]] = None, context=None, style=None,
+    def paraphrase(self, texts, n_paraphrases=5, examples: list[TextExample | tuple[str, str] | dict[str, str]] = None,
+                   context=None, style=None,
+                   prompt_config=cfg.config.text_generation.llm.paraphrase_prompt,
                    length_preference=None, preserve_meaning=True,
                    temperature=0.7, **kwargs):
         """
@@ -440,7 +443,7 @@ class LLMTextGenerator(TextGenerator):
 
         # Build prompt using helper function
         prompt_text, input_variables, input_data = self._build_prompt_text(
-            cfg.config.text_generation.llm.paraphrase_prompt,
+            prompt_config,
             examples=examples,
             context=context,
             style=style,
@@ -453,7 +456,6 @@ class LLMTextGenerator(TextGenerator):
             input_variables=input_variables,
             template=prompt_text
         )
-
         # Create all formatted prompts for batch processing
         formatted_prompts = []
         for text in texts:
@@ -545,7 +547,9 @@ class LLMTextGenerator(TextGenerator):
 
         return [x for x in orig_ret if x[0][0] in in_all]
 
-    def negate_sentence_multiple(self, texts, n_variations=1, prompt_config=None, context: str=None,
+    def negate_sentence_multiple(self, texts, n_variations=1,
+                                 prompt_config=cfg.config.text_generation.llm.negation_prompt,
+                                 context: str=None,
                                  examples: list[TextExample | tuple[str, str] | dict[str, str]] = None, **kwargs):
         """
         Generate negated versions of multiple sentences using LLM with batch processing.
@@ -568,8 +572,6 @@ class LLMTextGenerator(TextGenerator):
         List[List[str]]
             List of lists, where each inner list contains negated versions of the corresponding input text
         """
-        if prompt_config is None:
-            prompt_config = cfg.config.text_generation.llm.negation_prompt
 
         # Build prompt using helper function
         prompt_text, input_variables, input_data = self._build_prompt_text(
@@ -668,6 +670,7 @@ class LLMTextGenerator(TextGenerator):
             return results
 
     def detect_entities(self, texts, entity_type,
+                        prompt_config=cfg.config.text_generation.llm.entity_detection_prompt,
                        examples: list[TextExample | tuple[str, str] | dict[str, str]] = None,
                        context=None, temperature=0.0, **kwargs):
         """
@@ -720,7 +723,7 @@ class LLMTextGenerator(TextGenerator):
 
         # Build prompt using helper function
         prompt_text, input_variables, input_data = self._build_prompt_text(
-            cfg.config.text_generation.llm.entity_detection_prompt,
+            prompt_config,
             examples=examples,
             context=context,
             entity_type=entity_type,
