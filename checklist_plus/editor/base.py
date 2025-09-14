@@ -617,7 +617,8 @@ class Editor:
                 style=style,
                 length_preference=length_preference,
                 preserve_meaning=preserve_meaning,
-                temperature=temperature
+                temperature=temperature,
+                **kwargs
             )
         except Exception as e:
             logger.error(f"Paraphrasing failed: {e}", exc_info=True)
