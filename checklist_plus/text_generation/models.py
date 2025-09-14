@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field
+from typing import Optional, Union
+
+from pydantic import BaseModel, Field, validator
 
 
 class UniqueCompletions(BaseModel):
@@ -22,5 +24,35 @@ class NegationResponse(BaseModel):
     )
 
 
+class EntityDetectionResponse(BaseModel):
+    """Response model for entity detection."""
+    contains_entities: bool = Field(..., description="Whether the text contains entities of the specified type")
+    entities: list[str] = Field(default_factory=list, description="List of detected entities, empty if none found")
 
-__all__ = ['UniqueCompletions', 'ParaphraseResponse', 'NegationResponse']
+
+class TextExample(BaseModel):
+    """Single text generation example with input and structured output."""
+    input: str = Field(..., description="Input text")
+    output: ParaphraseResponse | NegationResponse | EntityDetectionResponse | UniqueCompletions | str = Field(
+        ...,
+        description="Expected output - can be a structured response model or simple string"
+    )
+    description: str | None = Field(None, description="Optional description of this example")
+
+    @validator('input')
+    def validate_input_non_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Input must be non-empty string")
+        return v.strip()
+
+    @validator('output')
+    def validate_output(cls, v):
+        if isinstance(v, str):
+            if not v or not v.strip():
+                raise ValueError("String output must be non-empty")
+            return v.strip()
+        # For Pydantic models, they handle their own validation
+        return v
+
+
+__all__ = ['TextExample', 'UniqueCompletions', 'ParaphraseResponse', 'NegationResponse', 'EntityDetectionResponse']

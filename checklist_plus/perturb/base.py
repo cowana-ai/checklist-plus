@@ -572,9 +572,9 @@ class Perturb:
         return process_ret(ret, ret_m=ret_m, n=n, meta=meta)
 
     @staticmethod
-    def change_number(doc, meta=False, seed=None, n=10):
+    def change_number(doc, meta=False, seed=None, n=10, skip_abbreviations=True, entity_types=None):
         """Change integers to other integers within 20% of the original integer
-        Does not change '2' or '4' to avoid abbreviations (this is 4 you, etc)
+        By default does not change '2' or '4' to avoid abbreviations (this is 4 you, etc)
 
         Parameters
         ----------
@@ -586,6 +586,11 @@ class Perturb:
             random seed
         n : int
             number of numbers to replace original locations with
+        skip_abbreviations : bool
+            if True, will skip '2' and '4' to avoid abbreviations (default: True)
+        entity_types : list of str, optional
+            spaCy entity types to target (e.g., ['MONEY', 'DATE', 'QUANTITY', 'CARDINAL', 'ORDINAL', 'PERCENT'])
+            If None, will change all digit tokens. If specified, will only change numbers within these entity types.
 
         Returns
         -------
@@ -596,12 +601,26 @@ class Perturb:
         """
         if seed is not None:
             np.random.seed(seed)
-        nums = [x.text for x in doc if x.text.isdigit()]
+
         ret = []
         ret_m = []
+
+        if entity_types is not None:
+            # Use spaCy entities to find digit tokens of specific types
+            nums = []
+            for ent in doc.ents:
+                if ent.label_ in entity_types:
+                    # Get all digit tokens within this entity
+                    for token in ent:
+                        if token.text.isdigit():
+                            nums.append(token.text)
+        else:
+            # Original behavior: find all digit tokens
+            nums = [x.text for x in doc if x.text.isdigit()]
+
         for x in nums:
             # e.g. this is 4 you
-            if x == '2' or x == '4':
+            if skip_abbreviations and (x == '2' or x == '4'):
                 continue
             sub_re = re.compile(r'\b%s\b' % x)
             try:
