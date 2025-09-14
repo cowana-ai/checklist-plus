@@ -12,6 +12,7 @@ from langchain_openai import ChatOpenAI
 from checklist_plus.config import cfg
 from checklist_plus.text_generation.masked_lm import TextGenerator
 from checklist_plus.text_generation.models import (
+    EntityDetectionResponse,
     NegationResponse,
     ParaphraseResponse,
     TextExample,
@@ -97,17 +98,81 @@ class LLMTextGenerator(TextGenerator):
 
         return DummyTokenizer()
 
+    @property
+    def entity_detection_examples(self):
+        """Built-in examples for entity detection using structured TextExample format."""
+        from checklist_plus.text_generation.models import (
+            EntityDetectionResponse,
+            TextExample,
+        )
+
+        return [
+            # Example 1: Brand names detection
+            TextExample(
+                input="I love my iPhone and Tesla car",
+                output=EntityDetectionResponse(
+                    contains_entities=True,
+                    entities=["iPhone", "Tesla"]
+                ),
+                description="BRAND"
+            ),
+
+            # Example 2: Person names detection
+            TextExample(
+                input="John called Mary yesterday to discuss the project",
+                output=EntityDetectionResponse(
+                    contains_entities=True,
+                    entities=["John", "Mary"]
+                ),
+                description="PERSON"
+            ),
+
+            # Example 3: No entities found
+            TextExample(
+                input="The weather is nice today and I feel great",
+                output=EntityDetectionResponse(
+                    contains_entities=False,
+                    entities=[]
+                ),
+                description="PERSON"
+            )
+        ]
+
     def _process_examples(self, examples):
         """Process various example formats into formatted string for prompt."""
         if not examples:
             return ""
+
+        from checklist_plus.text_generation.models import (
+            EntityDetectionResponse,
+            NegationResponse,
+            ParaphraseResponse,
+            TextExample,
+            UniqueCompletions,
+        )
 
         formatted_examples = []
 
         if isinstance(examples, list):
             for example in examples:
                 if isinstance(example, TextExample):
-                    formatted_examples.append(f"{example.input} -> {example.output}")
+                    # Handle structured output
+                    if isinstance(example.output, str):
+                        formatted_examples.append(f"{example.input} -> {example.output}")
+                    elif isinstance(example.output, ParaphraseResponse):
+                        paraphrases_str = ", ".join(example.output.paraphrases)
+                        formatted_examples.append(f"{example.input} -> Paraphrases: [{paraphrases_str}]")
+                    elif isinstance(example.output, NegationResponse):
+                        negations_str = ", ".join(example.output.negated_sentences)
+                        formatted_examples.append(f"{example.input} -> Negations: [{negations_str}]")
+                    elif isinstance(example.output, EntityDetectionResponse):
+                        entities_str = ", ".join(example.output.entities) if example.output.entities else "none"
+                        formatted_examples.append(f"entity_type={example.description} {example.input} -> Entities: {entities_str}")
+                    elif isinstance(example.output, UniqueCompletions):
+                        completions_str = str(example.output.completions)
+                        formatted_examples.append(f"{example.input} -> Completions: {completions_str}")
+                    else:
+                        formatted_examples.append(f"{example.input} -> {str(example.output)}")
                 elif isinstance(example, tuple) and len(example) == 2:
                     formatted_examples.append(f"{example[0]} -> {example[1]}")
                 elif isinstance(example, dict):
@@ -601,3 +666,259 @@ class LLMTextGenerator(TextGenerator):
             return results[0] if results else []
         else:
             return results
+
+    def detect_entities(self, texts, entity_type,
+                       examples: list[TextExample | tuple[str, str] | dict[str, str]] = None,
+                       context=None, temperature=0.0, **kwargs):
+        """
+        Detect if texts contain entities of a specific type and return the detected entities.
+
+        Parameters
+        ----------
+        texts : str or List[str]
+            Text(s) to analyze
+        entity_type : str
+            Type of entity to detect (e.g., "brand names", "person names", "animals")
+        examples : List[TextExample], List[Tuple], List[Dict], optional
+            Examples showing what entities of this type look like
+        context : str, optional
+            Additional context to guide entity detection
+        temperature : float
+            LLM temperature for detection (default: 0.3)
+        **kwargs
+            Additional parameters
+
+        Returns
+        -------
+        List[Dict] or Dict
+            Detection results with format:
+            {
+                "text": str,                    # Original text
+                "contains_entities": bool,      # True if entities found
+                "entities": List[str]           # List of detected entities
+            }
+
+        Examples
+        --------
+        >>> result = generator.detect_entities("I love my iPhone and Tesla", "brand names")
+        >>> print(result)
+        {
+            "text": "I love my iPhone and Tesla",
+            "contains_entities": True,
+            "entities": ["iPhone", "Tesla"]
+        }
+        """
+        if isinstance(texts, str):
+            texts = [texts]
+            return_single = True
+        else:
+            return_single = False
+
+        # Add default examples if requested
+        if examples is None:
+            examples = self.entity_detection_examples
+
+        # Build prompt using helper function
+        prompt_text, input_variables, input_data = self._build_prompt_text(
+            cfg.config.text_generation.llm.entity_detection_prompt,
+            examples=examples,
+            context=context,
+            entity_type=entity_type,
+            text=""  # Will be filled per text
+        )
+
+        detection_template = PromptTemplate(
+            input_variables=input_variables,
+            template=prompt_text
+        )
+
+        # Create formatted prompts
+        formatted_prompts = []
+        for text in texts:
+            input_data["text"] = text
+            formatted_prompt = detection_template.format(**input_data)
+            formatted_prompts.append(formatted_prompt)
+
+        # Use lower temperature for consistent detection
+        temp_llm = self.llm_client.bind(temperature=temperature)
+        structured_llm = temp_llm.with_structured_output(EntityDetectionResponse)
+
+        results = []
+        try:
+            responses = structured_llm.batch(formatted_prompts)
+
+            for i, response in enumerate(responses):
+                original_text = texts[i]
+
+                result = {
+                    "text": original_text,
+                    "contains_entities": response.contains_entities if hasattr(response, 'contains_entities') else False,
+                    "entities": response.entities if hasattr(response, 'entities') else []
+                }
+
+                results.append(result)
+
+        except Exception as e:
+            logger.error(f"LLM entity detection failed: {e}", exc_info=True)
+            # Fallback results
+            fallback_result = {
+                "text": text,
+                "contains_entities": False,
+                "entities": []
+            }
+            results = [fallback_result for text in texts]
+
+        if return_single:
+            return results[0] if results else fallback_result
+        else:
+            return results
+
+    def mask_detected_entities(self, text, entities, mask_token="{mask}",
+                              case_sensitive=False, whole_words_only=True):
+        """
+        Manually mask detected entities in text.
+
+        Parameters
+        ----------
+        text : str
+            Original text
+        entities : List[str]
+            List of entities to mask
+        mask_token : str
+            Token to use for masking (default: "[MASK]")
+        case_sensitive : bool
+            Whether to perform case-sensitive matching (default: False)
+        whole_words_only : bool
+            Whether to match whole words only (default: True)
+
+        Returns
+        -------
+        str
+            Text with entities masked
+
+        Examples
+        --------
+        >>> masked = generator.mask_detected_entities(
+        ...     "I love my iPhone and Tesla car",
+        ...     ["iPhone", "Tesla"]
+        ... )
+        >>> print(masked)
+        "I love my [MASK] and [MASK] car"
+        """
+        masked_text = text
+
+        for entity in entities:
+            if not entity.strip():
+                continue
+
+            if whole_words_only:
+                pattern = r'\b' + re.escape(entity) + r'\b'
+            else:
+                pattern = re.escape(entity)
+
+            flags = 0 if case_sensitive else re.IGNORECASE
+            masked_text = re.sub(pattern, mask_token, masked_text, flags=flags)
+
+        return masked_text
+
+    def detect_and_mask_entities(self, texts, entity_type,
+                                examples: list[TextExample | tuple[str, str] | dict[str, str]] = None,
+                                context=None, temperature=0.0, mask_token="{mask}",
+                                case_sensitive=False, whole_words_only=True, **kwargs):
+        """
+        Detect entities and mask them in one convenient function.
+
+        Parameters
+        ----------
+        texts : str or List[str]
+            Text(s) to analyze and mask
+        entity_type : str
+            Type of entity to detect (e.g., "brand names", "person names", "animals")
+        examples : List[TextExample], List[Tuple], List[Dict], optional
+            Examples showing what entities of this type look like
+        context : str, optional
+            Additional context to guide entity detection
+        temperature : float
+            LLM temperature for detection (default: 0.3)
+        mask_token : str
+            Token to use for masking (default: "[MASK]")
+        case_sensitive : bool
+            Whether to perform case-sensitive matching (default: False)
+        whole_words_only : bool
+            Whether to match whole words only (default: True)
+        **kwargs
+            Additional parameters
+
+        Returns
+        -------
+        List[Dict] or Dict
+            Results with format:
+            {
+                "original_text": str,           # Original input text
+                "masked_text": str,             # Text with entities masked
+                "contains_entities": bool,      # True if entities found
+                "entities": List[str]           # List of detected entities
+            }
+
+        Examples
+        --------
+        >>> result = generator.detect_and_mask_entities("I love my iPhone and Tesla", "brand names")
+        >>> print(result)
+        {
+            "original_text": "I love my iPhone and Tesla",
+            "masked_text": "I love my [MASK] and [MASK]",
+            "contains_entities": True,
+            "entities": ["iPhone", "Tesla"]
+        }
+        """
+        if isinstance(texts, str):
+            texts = [texts]
+            return_single = True
+        else:
+            return_single = False
+
+        # Step 1: Detect entities
+        detection_results = self.detect_entities(
+            texts, entity_type, examples=examples, context=context,
+            temperature=temperature, **kwargs
+        )
+
+        # Ensure detection_results is a list
+        if isinstance(detection_results, dict):
+            detection_results = [detection_results]
+
+        # Step 2: Combine detection and masking
+        final_results = []
+        for result in detection_results:
+            original_text = result["text"]
+            contains_entities = result["contains_entities"]
+            entities = result["entities"]
+
+            # Apply masking if entities were found
+            if contains_entities and entities:
+                masked_text = self.mask_detected_entities(
+                    original_text, entities, mask_token=mask_token,
+                    case_sensitive=case_sensitive, whole_words_only=whole_words_only
+                )
+            else:
+                masked_text = original_text
+
+            # Create lean result
+            final_result = {
+                "original_text": original_text,
+                "masked_text": masked_text,
+                "contains_entities": contains_entities,
+                "entities": entities
+            }
+
+            final_results.append(final_result)
+
+        if return_single:
+            return final_results[0] if final_results else {
+                "original_text": texts[0] if texts else "",
+                "masked_text": texts[0] if texts else "",
+                "contains_entities": False,
+                "entities": []
+            }
+        else:
+            return final_results

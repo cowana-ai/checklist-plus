@@ -53,3 +53,27 @@ llm:
     output_format: |
       Provide the negated sentences as a list. Example:
       ["Negated sentence 1", "Negated sentence 2", "Negated sentence 3"]
+
+  entity_detection_prompt:
+    task_context: "You are an entity detector. Identify if a text contains specific types of entities."
+    background_data:
+      context: "Focus on detecting entities in the context of: {context}"
+    rules: |
+      Rules:
+      1. Only identify entities that clearly belong to the specified type
+      2. List entities exactly as they appear in the text
+      3. If no entities found, return empty list
+      4. Be precise - don't include partial matches or ambiguous cases
+    task: |
+      Analyze this text for entities of type: {entity_type}
+
+      Text: "{text}"
+
+      Task: List ALL entities of type "{entity_type}" found in the text.
+    thinking_step: "Consider each word/phrase in the text and determine if it belongs to the specified entity type."
+    output_format: |
+      Respond with JSON in this exact format:
+      {{
+        "contains_entities": true,
+        "entities": ["entity1", "entity2"]
+      }}
