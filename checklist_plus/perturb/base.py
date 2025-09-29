@@ -1,13 +1,17 @@
 import collections
 import copy
 import json
+import logging
 import os
 import re
 
+import inflect
 import munch
 import numpy as np
 import pattern
 from pattern.en import tenses
+
+from .utils import is_brand_fuzzy_match, is_valid_noun
 
 
 class MunchWithAdd(munch.Munch):
@@ -631,4 +635,366 @@ class Perturb:
             to_sub = ['%s' % str(int(x) + t) for t in to_sub if str(int(x) + t) != x][:n]
             ret.extend([sub_re.sub(n, doc.text) for n in to_sub])
             ret_m.extend([(x, n) for n in to_sub])
+        return process_ret(ret, ret_m=ret_m, n=n, meta=meta)
+
+    @staticmethod
+    def number_to_words(doc, meta=False, seed=None, n=1, skip_abbreviations=True, entity_types=None):
+        """Convert numeric digits to word representations using inflect
+
+        Parameters
+        ----------
+        doc : spacy.token.Doc
+            input
+        meta : bool
+            if True, will return list of (orig_number, word_number) as meta
+        seed : int
+            random seed
+        n : int
+            number of variations to generate
+        skip_abbreviations : bool
+            if True, will skip '2' and '4' to avoid abbreviations (default: True)
+        entity_types : list of str, optional
+            spaCy entity types to target (e.g., ['MONEY', 'DATE', 'QUANTITY', 'CARDINAL', 'ORDINAL', 'PERCENT'])
+            If None, will convert all digit tokens. If specified, will only convert numbers within these entity types.
+
+        Returns
+        -------
+        list(str)
+            if meta=True, returns (list(str), list(tuple))
+            Strings with numbers converted to words.
+
+        """
+        if seed is not None:
+            np.random.seed(seed)
+
+        engine = inflect.engine()
+        ret = []
+        ret_m = []
+
+        if entity_types is not None:
+            # Use spaCy entities to find digit tokens of specific types
+            nums = []
+            for ent in doc.ents:
+                if ent.label_ in entity_types:
+                    # Get all digit tokens within this entity
+                    for token in ent:
+                        if token.text.isdigit():
+                            nums.append(token.text)
+        else:
+            # Original behavior: find all digit tokens
+            nums = [x.text for x in doc if x.text.isdigit()]
+
+        for x in nums:
+            # e.g. this is 4 you - skip potential abbreviations
+            if skip_abbreviations and (x == '2' or x == '4'):
+                continue
+
+            try:
+                num_value = int(x)
+
+                # Convert number to words
+                word_form = engine.number_to_words(num_value)
+
+                if word_form and word_form != x:
+                    # Create regex pattern to match the number
+                    sub_re = re.compile(r'\b%s\b' % re.escape(x))
+                    new_text = sub_re.sub(word_form, doc.text, count=1)
+
+                    if new_text != doc.text and new_text not in ret:
+                        ret.append(new_text)
+                        ret_m.append((x, word_form))
+
+            except (ValueError, TypeError):
+                # Skip if conversion fails
+                continue
+
+        return process_ret(ret, ret_m=ret_m, n=n, meta=meta)
+
+
+
+    @staticmethod
+    def add_inflection_variations(doc, meta=False, seed=None, n=10, similarity_threshold=0.85):
+        """Add singular/plural variations of nouns
+
+        Parameters
+        ----------
+        doc : spacy.token.Doc
+            input
+        meta : bool
+            if True, will return list of (original_word, changed_word) as meta
+        seed : int
+            random seed
+        n : int
+            number of variations to generate
+        similarity_threshold : float
+            Similarity threshold for semantic brand detection (0.0-1.0)
+            Higher values = stricter brand detection
+
+        Returns
+        -------
+        list(str)
+            if meta=True, returns (list(str), list(tuple))
+            Strings with inflection variations
+        """
+        logging.warning("This function uses brand name detection to avoid inflecting company names. "
+                       "For example, 'Apple' will not become 'Apples' if detected as a brand.")
+
+        if seed is not None:
+            np.random.seed(seed)
+
+        engine = inflect.engine()
+
+        ret = []
+        ret_m = []
+
+        # Get brand names from multiple sources
+        brand_names = set()
+
+        # 1. From spaCy entities (dynamic detection)
+        for ent in doc.ents:
+            if ent.label_ in ['ORG', 'PERSON']:
+                for token in ent:
+                    brand_names.add(token.text.lower())
+        # Find nouns in the document, excluding brand names
+        safe_nouns = []
+        for token in doc:
+            if (token.pos_ == "NOUN" and not token.is_space and len(token.text) > 1):
+                # Check if token is likely a brand name using multiple methods
+                is_brand = (
+                    token.text.lower() in brand_names or  # spaCy detected brand
+                    token.ent_type_ in ['ORG', 'PERSON'] or  # Entity type check
+                    is_brand_fuzzy_match(token.text, similarity_threshold)  # Fuzzy brand matching
+                )
+                if not is_brand:
+                    safe_nouns.append((token.text, token.tag_, token.i))
+                else:
+                    logging.debug(f"Skipping potential brand name: {token.text}")
+
+        if not safe_nouns:
+            logging.debug("No safe nouns found for inflection (all nouns detected as brands)")
+            return None
+
+        for _ in range(n):
+            # Pick a random noun to change
+            noun_text, tag, pos = safe_nouns[np.random.choice(len(safe_nouns))]
+            variation = None
+
+            if tag in ["NN", "NNP"]:  # Singular noun
+                plural = engine.plural(noun_text)
+                if plural and plural != noun_text:
+                    variation = plural
+            elif tag in ["NNS", "NNPS"]:  # Plural noun
+                singular = engine.singular_noun(noun_text)
+                if singular and singular != noun_text:
+                    variation = singular
+
+            if variation:
+                # Replace the noun in the text
+                pattern = re.compile(r'\b' + re.escape(noun_text) + r'\b')
+                new_text = pattern.sub(variation, doc.text, count=1)
+                if new_text != doc.text and new_text not in ret:
+                    ret.append(new_text)
+                    ret_m.append((noun_text, variation))
+
+        return process_ret(ret, ret_m=ret_m, n=n, meta=meta)
+
+    @staticmethod
+    def add_word_order_variations(doc, meta=False, seed=None, n=1):
+        """Add word order variations using smart swapping rules for e-commerce
+
+        Parameters
+        ----------
+        doc : spacy.token.Doc
+            input
+        meta : bool
+            if True, will return list of transformation info as meta
+        seed : int
+            random seed
+        n : int
+            number of variations to generate
+
+        Returns
+        -------
+        list(str)
+            if meta=True, returns (list(str), list(tuple))
+            Strings with word order variations
+        """
+        if seed is not None:
+            np.random.seed(seed)
+
+        ret = []
+        ret_m = []
+
+        # Identify different types of tokens for smart swapping
+        brands = []
+        nouns = []
+        adjectives = []
+
+        for token in doc:
+            if token.is_stop or token.is_punct or token.is_space:
+                continue
+
+            # Check if it's a brand (using our fuzzy matching)
+            if is_brand_fuzzy_match(token.text) or token.ent_type_ in ['ORG', 'PERSON']:
+                brands.append((token.text, token.i))
+            elif token.pos_ == "NOUN":
+                nouns.append((token.text, token.i))
+            elif token.pos_ == "ADJ":
+                adjectives.append((token.text, token.i))
+
+        # Define smart swapping rules based on adjacency and linguistic patterns
+        swap_rules = []
+
+        # Rule 1: Brand + Adjacent Noun -> Noun + Brand
+        # E.g., "Apple phone" -> "phone Apple", "Nike shoes" -> "shoes Nike"
+        if brands and nouns:
+            for brand in brands:
+                for noun in nouns:
+                    # Check if brand and noun are adjacent or very close
+                    distance = abs(brand[1] - noun[1])
+                    if distance <= 1:
+                        swap_rules.append(('brand_noun', brand, noun))
+
+        # Rule 2: Adjective + Adjacent Noun -> Noun + Adjective
+        # E.g., "red shoes" -> "shoes red", "smart phone" -> "phone smart"
+        if adjectives and nouns:
+            for adj in adjectives:
+                for noun in nouns:
+                    # Check if adjective and noun are adjacent
+                    distance = abs(adj[1] - noun[1])
+                    if distance <= 1:  # Must be adjacent for adj-noun swaps
+                        swap_rules.append(('adj_noun', adj, noun))
+
+        if not swap_rules:
+            return None
+
+        # Generate variations using the rules
+        for _ in range(n):
+            # Pick a random swapping rule
+            rule_type, word1, word2 = swap_rules[np.random.choice(len(swap_rules))]
+
+            # Create token list
+            tokens = [token.text for token in doc]
+            # Perform the swap
+            if word1[1] < len(tokens) and word2[1] < len(tokens):
+                # Swap the words at their positions
+                original_word1 = tokens[word1[1]]
+                original_word2 = tokens[word2[1]]
+
+                tokens[word1[1]] = original_word2
+                tokens[word2[1]] = original_word1
+
+                new_text = ' '.join(tokens)
+                # Clean up extra spaces
+                new_text = re.sub(r'\s+', ' ', new_text).strip()
+
+                if new_text != doc.text and new_text not in ret:
+                    ret.append(new_text)
+                    ret_m.append({
+                        'rule_type': rule_type,
+                        'swapped': [(original_word1, original_word2)],
+                        'positions': [word1[1], word2[1]]
+                    })
+
+        return process_ret(ret, ret_m=ret_m, n=n, meta=meta)
+
+    @staticmethod
+    def add_compound_variations(doc, meta=False, seed=None, n=10):
+        """Add compound/decompound variations by checking adjacent nouns
+
+        Parameters
+        ----------
+        doc : spacy.token.Doc
+            input
+        meta : bool
+            if True, will return list of (original_phrase, changed_phrase) as meta
+        seed : int
+            random seed
+        n : int
+            number of variations to generate
+
+        Returns
+        -------
+        list(str)
+            if meta=True, returns (list(str), list(tuple))
+            Strings with compound variations
+        """
+        if seed is not None:
+            np.random.seed(seed)
+
+        ret = []
+        ret_m = []
+
+        # Find suitable words in the document, excluding verbs, numbers, brands, etc.
+        nouns = []
+        for token in doc:
+            if (token.pos_ not in ["VERB", "AUX", "ADP", "CONJ", "CCONJ", "SCONJ", "PART", "INTJ", "X"] and  # Exclude verbs, auxiliaries, prepositions, conjunctions, particles, interjections, unknown
+                token.ent_type_ not in ["ORG", "PERSON", "MONEY", "DATE", "TIME", "PERCENT", "CARDINAL", "ORDINAL"] and  # Exclude entity types
+                not token.like_num and  # Exclude numbers
+                not token.is_punct and  # Exclude punctuation
+                not token.is_space and  # Exclude spaces
+                not token.is_stop and  # Exclude stop words
+                len(token.text) > 2 and  # Must be longer than 2 characters
+                token.text.isalpha() and  # Must be alphabetic (no mixed alphanumeric)
+                not is_brand_fuzzy_match(token.text)):  # Exclude brand names
+                nouns.append((token.text, token.i))
+
+        # Find potential compound/decompound opportunities
+        compound_opportunities = []
+        # Check adjacent nouns for compounding (e.g., "back pack" -> "backpack")
+        for i in range(len(nouns) - 1):
+            noun1_text, noun1_pos = nouns[i]
+            noun2_text, noun2_pos = nouns[i + 1]
+            # Check if nouns are adjacent or very close
+            if abs(noun1_pos - noun2_pos) == 1:
+                # Try to compound them
+                compound_word = noun1_text.lower() + noun2_text.lower()
+                if is_valid_noun(compound_word) and is_valid_noun(noun1_text) and is_valid_noun(noun2_text):
+                    compound_opportunities.append({
+                        'type': 'compound',
+                        'original': f"{noun1_text} {noun2_text}",
+                        'replacement': compound_word,
+                        'positions': [noun1_pos, noun2_pos]
+                    })
+        # Check single nouns for decompounding (e.g., "backpack" -> "back pack")
+        for noun_text, noun_pos in nouns:
+            if len(noun_text) >= 4:  # Only try to split longer words
+                # Try common split points
+                for split_pos in range(3, len(noun_text) - 2):
+                    part1 = noun_text[:split_pos]
+                    part2 = noun_text[split_pos:]                    # Check if both parts could be valid words
+                    if (is_valid_noun(part1) and is_valid_noun(part2) and
+                        len(part1) >= 2 and len(part2) >= 2):
+                        compound_opportunities.append({
+                            'type': 'decompound',
+                            'original': noun_text,
+                            'replacement': f"{part1} {part2}",
+                            'positions': [noun_pos]
+                        })
+                        break  # Only try one split per word
+
+        if not compound_opportunities:
+            return None
+
+        # Generate variations
+        for _ in range(n):
+            if not compound_opportunities:
+                break
+
+            # Pick a random opportunity
+            opportunity = compound_opportunities[np.random.choice(len(compound_opportunities))]
+            original = opportunity['original']
+            replacement = opportunity['replacement']
+
+            # Apply the transformation
+            pattern = re.compile(r'\b' + re.escape(original) + r'\b', re.IGNORECASE)
+
+            new_text = pattern.sub(replacement, doc.text, count=1)
+
+            if new_text != doc.text and new_text not in ret:
+                ret.append(new_text)
+                ret_m.append((original, replacement))
+                # Remove this opportunity to avoid duplicates
+                compound_opportunities.remove(opportunity)
+
         return process_ret(ret, ret_m=ret_m, n=n, meta=meta)
