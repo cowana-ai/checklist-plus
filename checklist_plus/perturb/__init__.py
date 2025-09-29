@@ -7,7 +7,7 @@ including both rule-based and LLM-enhanced approaches.
 
 from checklist_plus.perturb.base import Perturb
 from checklist_plus.perturb.llm import LLMPerturb
-from checklist_plus.perturb.utils import is_brand_fuzzy_match
+from checklist_plus.utils import is_brand_fuzzy_match
 
 __all__ = [
     'Perturb',

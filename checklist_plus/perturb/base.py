@@ -11,7 +11,7 @@ import numpy as np
 import pattern
 from pattern.en import tenses
 
-from .utils import is_brand_fuzzy_match, is_valid_noun
+from checklist_plus.utils import is_brand_fuzzy_match, is_valid_noun
 
 
 class MunchWithAdd(munch.Munch):
