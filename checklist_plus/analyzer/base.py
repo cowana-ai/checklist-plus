@@ -1,11 +1,10 @@
 import logging
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import spacy
 from pydantic import BaseModel, Field
-from spacy import tokens
 from spacy.lang.en import English
 from transformers import AutoModelForTokenClassification, AutoTokenizer, pipeline
 
