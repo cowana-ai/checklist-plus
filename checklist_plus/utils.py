@@ -22,11 +22,11 @@ def is_valid_noun(word: str, lang="eng"):
     from nltk.corpus import wordnet
 
     # Ensure wordnet is downloaded (this is safe to call multiple times)
-    if lang == "eng":
-        try:
-            nltk.data.find('corpora/wordnet')
-        except LookupError:
-            nltk.download('wordnet', quiet=True)
+
+    try:
+        nltk.data.find('corpora/wordnet')
+    except LookupError:
+        nltk.download('wordnet', quiet=True)
 
     # Check if word has any synsets in WordNet (any part of speech)
     word_lower = word.lower()
