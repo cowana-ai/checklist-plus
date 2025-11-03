@@ -899,7 +899,7 @@ class Perturb:
         return process_ret(ret, ret_m=ret_m, n=n, meta=meta)
 
     @staticmethod
-    def add_compound_variations(doc, meta=False, seed=None, n=10):
+    def add_compound_variations(doc, lang: str = "eng", meta=False, seed=None, n=10):
         """Add compound/decompound variations by checking adjacent nouns
 
         Parameters
@@ -949,7 +949,7 @@ class Perturb:
             if abs(noun1_pos - noun2_pos) == 1:
                 # Try to compound them
                 compound_word = noun1_text.lower() + noun2_text.lower()
-                if is_valid_noun(compound_word) and is_valid_noun(noun1_text) and is_valid_noun(noun2_text):
+                if is_valid_noun(compound_word, lang=lang) and is_valid_noun(noun1_text, lang=lang) and is_valid_noun(noun2_text, lang=lang):
                     compound_opportunities.append({
                         'type': 'compound',
                         'original': f"{noun1_text} {noun2_text}",
@@ -963,7 +963,7 @@ class Perturb:
                 for split_pos in range(3, len(noun_text) - 2):
                     part1 = noun_text[:split_pos]
                     part2 = noun_text[split_pos:]                    # Check if both parts could be valid words
-                    if (is_valid_noun(part1) and is_valid_noun(part2) and
+                    if (is_valid_noun(part1, lang=lang) and is_valid_noun(part2, lang=lang) and
                         len(part1) >= 2 and len(part2) >= 2):
                         compound_opportunities.append({
                             'type': 'decompound',
