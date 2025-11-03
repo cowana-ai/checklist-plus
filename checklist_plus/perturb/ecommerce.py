@@ -4,7 +4,6 @@ import re
 import numpy as np
 
 from checklist_plus.perturb.base import Perturb, process_ret
-from checklist_plus.utils import is_brand_fuzzy_match
 
 
 class EcommercePerturb(Perturb):
@@ -82,7 +81,7 @@ class EcommercePerturb(Perturb):
             next_token = tokens[i + 1]
 
             # Check if this looks like Brand + Product Variant using spaCy
-            is_brand_like = is_brand_fuzzy_match(brand_token.text) or (brand_token.pos_ in ['PROPN', 'NOUN'])
+            is_brand_like = (brand_token._.hf_ner is not None and "ORG" in brand_token._.hf_ner['entity'] and brand_token._.hf_ner['score'] > 0.5) or (brand_token.pos_ in ['PROPN', 'NOUN'])
 
             is_variant_like = is_short_adjective_like(next_token)
 
@@ -105,7 +104,7 @@ class EcommercePerturb(Perturb):
             number_token = tokens[i + 1]
             variant_token = tokens[i + 2]
 
-            is_brand_like = is_brand_fuzzy_match(brand_token.text) or (brand_token.pos_ in ['PROPN', 'NOUN'])
+            is_brand_like = (brand_token._.hf_ner is not None and "ORG" in brand_token._.hf_ner['entity'] and brand_token._.hf_ner['score'] > 0.5) or (brand_token.pos_ in ['PROPN', 'NOUN'])
 
             is_number = (number_token.pos_ == 'NUM' or number_token.text.isdigit())
             is_variant_like = is_short_adjective_like(variant_token)

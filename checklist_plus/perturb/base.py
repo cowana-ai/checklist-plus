@@ -11,7 +11,7 @@ import numpy as np
 import pattern
 from pattern.en import tenses
 
-from checklist_plus.utils import is_brand_fuzzy_match, is_valid_noun
+from checklist_plus.utils import is_valid_noun
 
 
 class MunchWithAdd(munch.Munch):
@@ -713,7 +713,7 @@ class Perturb:
 
 
     @staticmethod
-    def add_inflection_variations(doc, meta=False, seed=None, n=10, similarity_threshold=0.85):
+    def add_inflection_variations(doc, meta=False, seed=None, n=10, similarity_threshold=0.5):
         """Add singular/plural variations of nouns
 
         Parameters
@@ -763,7 +763,7 @@ class Perturb:
                 is_brand = (
                     token.text.lower() in brand_names or  # spaCy detected brand
                     token.ent_type_ in ['ORG', 'PERSON'] or  # Entity type check
-                    is_brand_fuzzy_match(token.text, similarity_threshold)  # Fuzzy brand matching
+                    (token._.hf_ner is not None and "ORG" in token._.hf_ner['entity'] and token._.hf_ner['score'] > similarity_threshold)
                 )
                 if not is_brand:
                     safe_nouns.append((token.text, token.tag_, token.i))
@@ -835,7 +835,7 @@ class Perturb:
                 continue
 
             # Check if it's a brand (using our fuzzy matching)
-            if is_brand_fuzzy_match(token.text) or token.ent_type_ in ['ORG', 'PERSON']:
+            if (token._.hf_ner is not None and "ORG" in token._.hf_ner['entity'] and token._.hf_ner['score'] > 0.5)  or token.ent_type_ in ['ORG', 'PERSON']:
                 brands.append((token.text, token.i))
             elif token.pos_ == "NOUN":
                 nouns.append((token.text, token.i))
@@ -936,7 +936,7 @@ class Perturb:
                 not token.is_stop and  # Exclude stop words
                 len(token.text) > 2 and  # Must be longer than 2 characters
                 token.text.isalpha() and  # Must be alphabetic (no mixed alphanumeric)
-                not is_brand_fuzzy_match(token.text)):  # Exclude brand names
+                not (token._.hf_ner is not None and "ORG" in token._.hf_ner['entity'] and token._.hf_ner['score'] > 0.5)):  # Exclude brand names
                 nouns.append((token.text, token.i))
 
         # Find potential compound/decompound opportunities
