@@ -10,5 +10,5 @@ from checklist_plus.perturb.llm import LLMPerturb
 
 __all__ = [
     'Perturb',
-    'LLMPerturb',
+    'LLMPerturb'
 ]

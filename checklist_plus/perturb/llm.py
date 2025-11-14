@@ -6,7 +6,6 @@ the rule-based perturbations in the base Perturb class.
 """
 
 import logging
-from typing import List, Optional, Union
 
 from checklist_plus.text_generation import LLMTextGenerator
 
